@@ -2,7 +2,9 @@ name: ollama-marimo
 
 services:
   ollama:
-    image: ollama/ollama:latest
+    build:
+      context: ./ollama
+      dockerfile: Dockerfile
     container_name: ollama
     ports:
       - "11434:11434"
@@ -28,8 +30,8 @@ services:
 
   marimo:
     build:
-      context: .
-      dockerfile: Dockerfile.marimo
+      context: ./marimo
+      dockerfile: Dockerfile
     container_name: marimo
     command: ["marimo", "edit", "--no-token", "-p", "8080", "--host", "0.0.0.0"]
     ports:
