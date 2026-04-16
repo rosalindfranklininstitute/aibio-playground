@@ -1,0 +1,51 @@
+name: ollama-marimo
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - /opt/ollama-marimo/ollama:/root/.ollama
+    networks:
+      - ollama-network
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_KEEP_ALIVE=30m
+      - OLLAMA_SCHED_SPREAD=false
+      - OLLAMA_NUM_PARALLEL=4
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities:
+                - gpu
+              count: 1
+    restart: unless-stopped
+
+  marimo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: marimo
+    command: ["marimo", "edit", "--no-token", "-p", "8080", "--host", "0.0.0.0"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - /opt/ollama-marimo/marimo:/app
+      - /opt/ollama-marimo/marimo.toml:/home/appuser/.config/marimo/marimo.toml
+    networks:
+      - ollama-network
+    environment:
+      - MARIMO_SKIP_UPDATE_CHECK=1
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+networks:
+  ollama-network:
+    name: ollama-network
+    external: false
