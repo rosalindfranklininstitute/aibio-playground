@@ -29,14 +29,13 @@ services:
   marimo:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.marimo
     container_name: marimo
     command: ["marimo", "edit", "--no-token", "-p", "8080", "--host", "0.0.0.0"]
     ports:
       - "8080:8080"
     volumes:
       - /opt/ollama-marimo/marimo:/app
-      - /opt/ollama-marimo/marimo.toml:/home/appuser/.config/marimo/marimo.toml
     networks:
       - ollama-network
     environment:

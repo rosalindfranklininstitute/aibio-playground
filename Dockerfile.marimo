@@ -11,3 +11,5 @@ RUN pip install --no-cache-dir \
     chromadb
 
 USER appuser
+
+COPY marimo.toml /home/appuser/.config/marimo/marimo.toml
