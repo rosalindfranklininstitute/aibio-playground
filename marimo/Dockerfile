@@ -8,6 +8,8 @@ RUN pip install --no-cache-dir \
     pillow \
     opencv-python-headless==4.12.0.88 \
     openai \
+    scikit-image \
+    pooch \
     chromadb
 
 USER appuser
