@@ -1,5 +1,4 @@
 name: ollama-marimo
-
 services:
   ollama:
     build:
@@ -9,7 +8,7 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - /opt/ollama-marimo/ollama:/root/.ollama
+      - ./data/ollama:/root/.ollama
     networks:
       - ollama-network
     environment:
@@ -27,7 +26,6 @@ services:
                 - gpu
               count: 1
     restart: unless-stopped
-
   marimo:
     build:
       context: ./marimo
@@ -37,7 +35,10 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /opt/ollama-marimo/marimo:/app
+      - ./data/marimo:/app
+      - ./agent:/app/agent
+      - ./catalogue:/app/catalogue
+      - ./notebooks:/app/notebooks
     networks:
       - ollama-network
     environment:
@@ -45,7 +46,6 @@ services:
     depends_on:
       - ollama
     restart: unless-stopped
-
 networks:
   ollama-network:
     name: ollama-network
