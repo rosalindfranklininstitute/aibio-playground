@@ -1,10 +1,10 @@
 METADATA = {
     "name": "gaussian_blur",
     "description": (
-        "Blurs an image using a gaussian filter."
-        "Use this when a user wants to remove background noise before segmenting the image."
-        "The kernel size can be defined in pixels (must be odd),"
-        "or the standard deviation (sigma) of the gaussian curve can be used instead."
+        "Blurs an image using a gaussian filter. "
+        "Use this when a user wants to remove background noise before segmenting the image. "
+        "The kernel size can be defined in pixels (must be odd), "
+        "or the standard deviation (sigma) of the gaussian curve can be used instead. "
         "For images with multiple channels, the blur is computed for each channel separately."
     ),
     "parameters": {

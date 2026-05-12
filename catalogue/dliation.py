@@ -1,12 +1,12 @@
 METADATA = {
-    "name": "erosion",
+    "name": "dilation",
     "description": (
-        "Erodes a binary or greyscale image. "
+        "Dilates a binary or greyscale image. "
         "Each pixel is examined with its neighbours in a given kernel size, "
-        "and assigned the lowest value in that neighbourhood. "
-        "Erosion grows dark regions and shrinks bright ones."
-        "Often used to remove small bright objects before further processing,"
-        "for example removing bright background noise."
+        "and assigned the highest value in that neighbourhood. "
+        "Dilation shrinks dark regions and grows bright ones. "
+        "Often used to remove small dark objects before further processing, "
+        "for example removing dark background noise. "
         "Image must be either binary or greyscale, not colour. "
         "Currently implemented with a square kernel only."
     ),
@@ -22,16 +22,16 @@ METADATA = {
         },
         "iterations": {
             "type": "number",
-            "description": "The number of times the erosion is applied before returning the image."
+            "description": "The number of times the dilation is applied before returning the image."
             "Must be positive. Defaults to 1."
         },
     },
     "required": ["image"],
-    "tags": ["morphological", "transform", "erosion", "binary", "feature extraction", "foreground"],
+    "tags": ["morphological", "transform", "dilation", "binary", "feature extraction", "foreground"],
     "requires": ["opencv-python-headless","numpy"],
 }
 
-def erosion(image, kernel_size = 5, iterations = 1):
+def dilation(image, kernel_size = 5, iterations = 1):
     import cv2
     import numpy as np
 
@@ -39,5 +39,5 @@ def erosion(image, kernel_size = 5, iterations = 1):
 
     kernel = np.ones((kernel_size,kernel_size),np.uint8)
 
-    erosion = cv2.erode(image,kernel,iterations)
-    return erosion
+    dilation = cv2.dilate(image,kernel,iterations)
+    return dilation
