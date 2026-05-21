@@ -6,6 +6,7 @@ METADATA = {
         "The black hat locates dark features smaller than the defined kernel size. "
         "Located pixels will be highlighted in the returned image, so will appear bright. "
         "Sometimes this transform is used to find the dark edges of objects. "
+        "Black hat is the same as subtracting the original image from the output of the closing operation. "
         "Image must be either binary or greyscale, not colour."
     ),
     "parameters": {
@@ -26,6 +27,11 @@ METADATA = {
 
 
 def black_hat(image, kernel_size = 5):
+        # The number of channels can be arbitrary. The depth should be one of CV_8U, CV_16U, CV_16S, CV_32F or CV_64F
+        # So technically this can be done on multichannel images and 32/64 depth
+        # But it's not scientifically useful to do so... 
+        # Funny things happen if the kernel size is even.
+    
     import cv2
     import numpy as np
     

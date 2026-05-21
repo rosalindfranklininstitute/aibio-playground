@@ -4,10 +4,10 @@ METADATA = {
         "Runs the top-hat transform, also known as the white top-hat. "
         "Use this when a user wants to extract small elements or details from images. "
         "The white tophat locates bright features smaller than the defined kernel size. "
-        "Sometimes this transform is used to isolate noise, "
-        "then the output is subtracted from the original image to remove the unwanted small features. "
+        "Sometimes this transform is used to isolate desired small objects from larger ones. "
         "This can also be used to process images with non-uniform background prior to thresholding "
         "to better distinguish the desired features for downstream segmentation. "
+        "White top-hat is the same as subtracting the output of the opening operation from the original image. "
         "Image must be either binary or greyscale, not colour."
     ),
     "parameters": {
@@ -28,6 +28,10 @@ METADATA = {
 
 
 def top_hat(image, kernel_size = 5):
+        # The number of channels can be arbitrary. The depth should be one of CV_8U, CV_16U, CV_16S, CV_32F or CV_64F
+        # So technically this can be done on multichannel images and 32/64 depth
+        # But it's not scientifically useful to do so... 
+        # Funny things happen if the kernel size is
     import cv2
     import numpy as np
     

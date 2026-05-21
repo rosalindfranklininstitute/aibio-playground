@@ -24,7 +24,7 @@ METADATA = {
         }
     },
     "required": ["image"],
-    "tags": ["smoothing", "denoise", "blur", "pre-processing"],
+    "tags": ["smoothing", "denoise", "blur", "filter", "pre-processing"],
     "requires": ["opencv-python-headless"],
 }
 
