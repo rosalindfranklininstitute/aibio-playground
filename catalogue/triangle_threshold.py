@@ -37,8 +37,9 @@ def triangle_thresh(image):
     elif image.dtype == np.uint8:
         maxval = 255
     
-    triangle_thresh = cv2.threshold(image, thresh = 0, maxval = maxval, type = cv2.THRESH_OTSU)
+    
+    _, triangle_thresh = cv2.threshold(image, thresh = 0, maxval = maxval, type = cv2.THRESH_OTSU)
     
     return triangle_thresh
 
-# Returns TWO objects to unpack. First object is chosen threshold value, second object is thresholded image.
+# Returns only second argument = thresholded image. Threshold value _ not currently returned
