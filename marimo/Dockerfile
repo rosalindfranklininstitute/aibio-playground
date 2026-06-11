@@ -10,7 +10,16 @@ RUN pip install --no-cache-dir \
     openai \
     scikit-image \
     pooch \
-    chromadb
+    chromadb \
+    wigglystuff \
+    bioio \
+    bioio-czi \
+    bioio-imageio \
+    bioio-lif \
+    bioio-nd2 \
+    bioio-ome-tiff \
+    bioio-ome-tiled-tiff \
+    bioio-tifffile
 
 USER appuser
 
