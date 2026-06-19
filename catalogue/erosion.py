@@ -39,5 +39,5 @@ def erosion(image, kernel_size = 5, iterations = 1):
 
     kernel = np.ones((kernel_size,kernel_size),np.uint8)
 
-    erosion = cv2.erode(image,kernel,iterations)
+    erosion = cv2.erode(image,kernel=kernel,iterations=iterations)
     return erosion

@@ -17,7 +17,7 @@ METADATA = {
     "requires": ["opencv-python-headless","numpy"],
 }
 
-def otsu_thresh(image):
+def otsu_threshold(image):
     #     THRESH_OTSU mode:
     #     'src_type == CV_8UC1 || src_type == CV_16UC1'
     #     only accepts single-channel images
@@ -34,8 +34,8 @@ def otsu_thresh(image):
     elif image.dtype == np.uint8:
         maxval = 255
     
-    _, otsu_thresh = cv2.threshold(image, thresh = 0, maxval = maxval, type = cv2.THRESH_OTSU)
+    _, otsu_threshold = cv2.threshold(image, thresh = 0, maxval = maxval, type = cv2.THRESH_OTSU)
     
-    return otsu_thresh
+    return otsu_threshold
 
 # Returns only second argument = thresholded image. Threshold value _ not currently returned
