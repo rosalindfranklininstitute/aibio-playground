@@ -40,7 +40,8 @@ def bilateral_filter(image, distance = None, sigma_colour = 50, sigma_space = 5)
     # Bilateral filtering is only implemented for CV_8U and CV_32F images
     # Currently only implemented conversion from CV_16U to CV_8U, FP not supported. 
     import cv2
-
+    import numpy as np
+    
     assert sigma_colour >= sigma_space, "Are you sure? If colour and space variations are similar, maybe try a gaussian blur instead"
     assert sigma_space <= 100, "Large values for sigma space will make the analysis computationally intensive"
 

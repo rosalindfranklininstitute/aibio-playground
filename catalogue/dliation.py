@@ -39,5 +39,5 @@ def dilation(image, kernel_size = 5, iterations = 1):
 
     kernel = np.ones((kernel_size,kernel_size),np.uint8)
 
-    dilation = cv2.dilate(image,kernel,iterations)
+    dilation = cv2.dilate(image,kernel=kernel,iterations=iterations)
     return dilation

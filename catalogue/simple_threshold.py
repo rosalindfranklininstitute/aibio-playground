@@ -29,7 +29,7 @@ METADATA = {
 }
 
 
-def simple_thresh(image,threshold = None, invert = False):
+def simple_threshold(image,threshold = None, invert = False):
     # cvt this to uint 8 is required before setting max val to 255
     # accepts 8, 32 FP, and can be multi-channel 
     # open cv expects the channel to be the last 
@@ -46,6 +46,6 @@ def simple_thresh(image,threshold = None, invert = False):
     if invert == False:
         simple_thresh = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY)
     elif invert == True:
-        simple_thresh = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY_INV)
+        simple_threshold = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY_INV)
     
-    return simple_thresh
+    return simple_threshold

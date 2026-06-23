@@ -17,7 +17,7 @@ METADATA = {
     "requires": ["opencv-python-headless","numpy"],
 }
 
-def triangle_thresh(image):
+def triangle_threshold(image):
     #     THRESH_TRIANG:E mode:
     #     'src_type == CV_8UC1'
     #     only accepts single-channel images
@@ -38,8 +38,8 @@ def triangle_thresh(image):
         maxval = 255
     
     
-    _, triangle_thresh = cv2.threshold(image, thresh = 0, maxval = maxval, type = cv2.THRESH_OTSU)
+    _, triangle_threshold = cv2.threshold(image, thresh = 0, maxval = maxval, type = cv2.THRESH_OTSU)
     
-    return triangle_thresh
+    return triangle_threshold
 
 # Returns only second argument = thresholded image. Threshold value _ not currently returned
