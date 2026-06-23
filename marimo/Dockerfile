@@ -18,7 +18,8 @@ RUN pip install --no-cache-dir \
     bioio-lif \
     bioio-nd2 \
     bioio-ome-tiff \
-    bioio-tifffile
+    bioio-tifffile \
+    imageio
 
 USER appuser
 
