@@ -1,6 +1,7 @@
 name: ollama-marimo
 services:
   ollama:
+    runtime: nvidia
     build:
       context: ./ollama
       dockerfile: Dockerfile
@@ -16,15 +17,8 @@ services:
       - OLLAMA_KEEP_ALIVE=30m
       - OLLAMA_SCHED_SPREAD=false
       - OLLAMA_NUM_PARALLEL=4
+      - CUDA_VISIBLE_DEVICES=1
     tty: true
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities:
-                - gpu
-              count: 1
     restart: unless-stopped
   marimo:
     build:
