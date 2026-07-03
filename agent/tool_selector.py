@@ -1,13 +1,14 @@
-import inspect, json
+import inspect, json, copy
 from openai import OpenAI
 
 OLLAMA_BASE_URL = "http://ollama:11434/v1"
 MODEL = "gemma4:26b"
 SYSTEM_PROMPT_PATH = "/app/agent/prompts/system-prompt.txt"
+MAX_PIPELINE_LENGTH = 10
 
 
 def load_system_prompt() -> str:
-    """Load a default system prompt if one is not provided by file"""
+    """Load a default system prompt if one is not provided by file (OUTDATED)"""
     try:
         with open(SYSTEM_PROMPT_PATH, 'r') as f:
             return f.read().strip()
@@ -21,6 +22,15 @@ def load_system_prompt() -> str:
             "user might find help. "
             "Never write new code."
         )
+
+def _get_msg_content(msg) -> str:
+    """Extract content from message object (mo.ui.chat) or dict (testing)"""
+    return msg.content if hasattr(msg, 'content') else msg.get('content', '')
+
+
+def _get_msg_role(msg) -> str:
+    """Extract role from message object (mo.ui.chat) or dict (testing)"""
+    return msg.role if hasattr(msg, 'role') else msg.get('role', '')
 
 
 def explain_selection(user_query, name, description, client):
@@ -65,7 +75,7 @@ def explain_selection(user_query, name, description, client):
     return response.choices[0].message.content
 
 
-def select_tool(messages: list, catalogue: dict) -> dict:
+def select_tool(messages: list, catalogue: dict):
     """
     Send conversation history and tool specs to a LLM,
     and return the result in a dict.
@@ -93,46 +103,31 @@ def select_tool(messages: list, catalogue: dict) -> dict:
         'reasoning' : str or None - model thinking
         'source'    : str or None - code for the function selected
     """
-    # Create Ollama client (no API key required as local)
     client = OpenAI(base_url=OLLAMA_BASE_URL, api_key="ignored", timeout=120)
-    # Get Ollama compatible tool specs for each catalogue function
     tools = [entry['tool_spec'] for entry in catalogue.values()]
 
-    # Build message history for LLM, prepending system prompt
     history = [{"role": "system", "content": load_system_prompt()}]
-    # mo.ui.chat uses ChatMessages with role and content attributes
     for msg in messages:
-        try:
-            role = msg.role
-            content = msg.content
-        except AttributeError:
-            # TESTING - allow dict
-            role = msg.get("role")
-            content = msg.get("content")
-        history.append({"role": role, "content": content})
+        history.append({"role": _get_msg_role(msg), "content": _get_msg_content(msg)})
 
-    # Get (next) response from model
     print('tools:', tools)
     print('Making API call..')
     response = client.chat.completions.create(
         model=MODEL,
         messages=history,
         tools=tools,
-        tool_choice="auto",  # LLM can use a tool, but doesn't have to
-        stream=False,  # No streaming (not simple with tool flow)
+        tool_choice="auto",
+        stream=False,
     )
     print('Response:', response)
 
     if not response.choices:
         raise ValueError("LLM returned no choices")
 
-    # In general can query model for n>=1 responses, meaning
-    # 'choices' is a list (n=1 in above create() call)
     message = response.choices[0].message
     print("message fields:", vars(message))
     reasoning = getattr(message, 'reasoning', None)
 
-    # No tool selected
     if not message.tool_calls:
         return {
             "selected": False,
@@ -143,7 +138,6 @@ def select_tool(messages: list, catalogue: dict) -> dict:
             "source": None,
         }
 
-    # Don't allow parallel tool calling (for now)
     if len(message.tool_calls) > 1:
         raise ValueError(
             f"LLM returned {len(message.tool_calls)} tool calls, expected 1. "
@@ -153,9 +147,6 @@ def select_tool(messages: list, catalogue: dict) -> dict:
     tool_call = message.tool_calls[0]
     name = tool_call.function.name
 
-    # Return an informative message if LLM tries to call a function
-    # that does not exist - later, we could try re-routing this to
-    # another call
     if name not in catalogue:
         return {
             "selected": False,
@@ -175,15 +166,10 @@ def select_tool(messages: list, catalogue: dict) -> dict:
     except (json.JSONDecodeError, TypeError):
         args = {}
 
-    # Get source code of callable function
     fn = catalogue[name]['function']
     source = inspect.getsource(fn)
     description = catalogue[name]['metadata']['description']
-
-    # Get last user message for explanation context
-    user_query = messages[-1].content if hasattr(messages[-1], 'content') else messages[-1].get('content', '')
-
-    # Second LLM call for natural language explanation (no tools)
+    user_query = _get_msg_content(messages[-1])
     explanation = explain_selection(user_query, name, description, client)
 
     return {
@@ -193,4 +179,208 @@ def select_tool(messages: list, catalogue: dict) -> dict:
         "message": f"**Function selected:** `{name}`\n\n{explanation}",
         "reasoning": reasoning,
         "source": source,
+    }
+
+
+def _build_catalogue_prompt(catalogue: dict) -> str:
+    """
+    Convert catalogue tool_specs into a JSON string for use in
+    system prompt (remove 'image' parameter as superfluous to agent)
+    """
+    specs = []
+    for entry in catalogue.values():
+        spec = copy.deepcopy(entry['tool_spec'])
+        props = spec['function']['parameters']['properties']
+        required = spec['function']['parameters']['required']
+        props.pop('image', None)
+        if 'image' in required: # is a list
+            required.remove('image')
+        specs.append(spec)
+    return json.dumps(specs, indent=2)
+
+
+def _strip_code_fences(raw: str) -> str:
+    """Strip any (json) code fences"""
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+    return raw
+
+
+def _get_catalogue_defaults(name: str, catalogue: dict) -> dict:
+    """default parameter values for a catalogue func (see loader.py)"""
+    return catalogue[name]['defaults']
+
+def _json_parse_validate(raw: str, catalogue: dict) -> tuple[list, list]:
+    """
+    Parse string from LLM and validate as JSON with string of functions
+    from catalogue
+
+    Returns
+    -------
+    valid_steps : list of {"name": str, "args": dict}
+    errors : list of str describing any issues encountered
+    """
+    raw = _strip_code_fences(raw)
+
+    try:
+        steps = json.loads(raw)
+    except json.JSONDecodeError as e:
+        return [], [f"LLM returned invalid JSON: {e}"]
+
+    if not isinstance(steps, list):
+        return [], ["LLN did not return a JSON array of steps."]
+
+    if not steps:
+        return [], ["LLM returned an empty pipeline."]
+
+    steps = steps[:MAX_PIPELINE_LENGTH] # LLM should only return up to MAX_PIPELINE_LENGTH functions anyway
+
+    valid, errors = [], []
+    for i, step in enumerate(steps):
+        name = step.get('name')
+        llm_args = step.get('args', {}) # LLM may not provide args
+        if name not in catalogue: # Exact match only (fuzzy instead or second AI to correct?)
+            errors.append(f"Step {i+1}: unknown function '{name}'")
+            continue
+        defaults = _get_catalogue_defaults(name, catalogue)
+        args = {**defaults, **llm_args} # LLM args override defaults
+        valid.append({'name': name, 'args': args})
+
+    return valid, errors
+
+
+def _explain_pipeline(pipeline: list, catalogue: dict, client, messages: list) -> str:
+    """ Second LLM call to explain pipeline and flag e.g. ordering issues"""
+
+    # include description of each function in pipeline
+    steps_description = "\n".join(
+        f"{i+1}. {step['name']} (args: {step['args']}): "
+        f"{catalogue[step['name']]['metadata']['description']}"
+        for i, step in enumerate(pipeline)
+    )
+
+    history = []
+    # Include chat history with user for context (i.e. need to know their goals)
+    for msg in messages:
+        history.append({"role": _get_msg_role(msg), "content": _get_msg_content(msg)})
+
+    history.append({
+        "role": "user",
+        "content": (
+            f"The following pipeline of image processing steps was selected:\n"
+            f"{steps_description}\n\n"
+            f"Briefly explain what each step will do and why this pipeline "
+            f"matches the request. If any steps appear to be in an "
+            f"unusual or potentially incorrect order, flag this clearly. "
+            f"Do not write any code."
+        )
+    })
+
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=history,
+        stream=False,
+    )
+    if not response.choices:
+        raise ValueError("LLM returned no choices in pipeline explanation call")
+    return response.choices[0].message.content
+
+
+def select_pipeline(messages: list, catalogue: dict) -> dict:
+    """
+    Ask an LLM to suggest an ordered pipeline of of catalogue
+    functions appropriate to the user's request.
+
+    Uses a single LLM call with no tool-calling. The catalogue is
+    described via serialised tool_spec JSON embedded in the system
+    prompt. A second call explains the selected pipeline in natural
+    language and flags any ordering concerns.
+
+    Parameters
+    ----------
+    messages : list
+        Conversation history from mo.ui.chat or list of dicts
+        (local testing). Each item has a role and content.
+    catalogue : dict
+        Loaded catalogue from agent.loader.load_catalogue().
+
+    Returns
+    -------
+    dict with keys:
+        'selected'  : bool
+        'pipeline'  : list of {"name": str, "args": dict} or None
+        'message'   : str - explanation or error description
+        'reasoning' : str or None - model thinking if available
+        'sources'   : dict of {name: source_code} or None
+    """
+    client = OpenAI(base_url=OLLAMA_BASE_URL, api_key="ignored", timeout=120)
+    catalogue_prompt = _build_catalogue_prompt(catalogue)
+
+    system_prompt = (
+        "You are a image processing assistant for microscopy images in biology"
+        "You have knowledge of the following image processing functions, "
+        "described in JSON:\n\n"
+        f"{catalogue_prompt}\n\n"
+        "The user will describe what they want to achieve with their image. "
+        "It is your job to suggest a series of functions (in order) to apply "
+        "to achieve their goal, if possible with the above functions. "
+        "Respond ONLY with a valid JSON array of up to "
+        f"{MAX_PIPELINE_LENGTH} steps. "
+        "Each step must be a JSON object with exactly two keys:\n"
+        "  \"name\": the function name (string, must match a name above)\n"
+        "  \"args\": an object of parameter values to override defaults "
+        "(use {} if all defaults are appropriate)\n"
+        "Order steps as they should be applied to the image. "
+        "Use only function names from the list above. "
+        "If no functions are appropriate, return an empty array: []\n"
+        "Do not include any explanation, markdown, or code fences. "
+        "Your entire response must be a single JSON array.\n"
+        "Example: [{\"name\": \"gaussian_blur\", \"args\": {\"kernel_size\": 5}}, "
+        "{\"name\": \"otsu_thresh\", \"args\": {}}]"
+    )
+
+    history = [{"role": "system", "content": system_prompt}]
+    for msg in messages:
+        history.append({"role": _get_msg_role(msg), "content": _get_msg_content(msg)})
+
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=history,
+        stream=False,
+    )
+
+    if not response.choices:
+        raise ValueError("LLM returned no choices")
+
+    message = response.choices[0].message
+    reasoning = getattr(message, 'reasoning', None)
+    raw = message.content.strip()
+
+    pipeline, errors = _json_parse_validate(raw, catalogue)
+
+    if not pipeline:
+        return {
+            "selected": False,
+            "pipeline": None,
+            "message": f"No valid pipeline could be constructed. Errors: {errors}",
+            "reasoning": reasoning,
+            "sources": None,
+        }
+
+    explanation = _explain_pipeline(pipeline, catalogue, client, messages)
+    error_note = f"\n\n*Validation warnings: {errors}*" if errors else ""
+    sources = {
+        step['name']: inspect.getsource(catalogue[step['name']]['function'])
+        for step in pipeline
+    }
+
+    return {
+        "selected": True,
+        "pipeline": pipeline,
+        "message": f"{explanation}{error_note}",
+        "reasoning": reasoning,
+        "sources": sources,
     }
