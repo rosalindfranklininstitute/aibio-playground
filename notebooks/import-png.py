@@ -1,6 +1,8 @@
 import marimo
+
 __generated_with = "0.23.1"
 app = marimo.App(width="medium")
+
 
 @app.cell
 def _():
@@ -8,7 +10,9 @@ def _():
     import sys
     sys.path.insert(0, '/app')
     from agent.util import load_to_png, inspect_dims
-    return inspect_dims, load_to_png, mo, sys
+
+    return inspect_dims, load_to_png, mo
+
 
 @app.cell
 def _(mo):
@@ -17,9 +21,11 @@ def _(mo):
         filetypes=SUPPORTED_EXT,
         kind="button",
         label="Upload a microscopy image",
+        max_size=250000000
     )
     upload
     return (upload,)
+
 
 @app.cell
 def _(inspect_dims, mo, upload):
@@ -31,6 +37,7 @@ def _(inspect_dims, mo, upload):
     mo.md(f"**Detected dimensions:**\n```\n{header}\n{values}\n```")
     return detected_dims, detected_shape
 
+
 @app.cell
 def _(detected_dims, mo):
     dims_input = mo.ui.text(
@@ -39,13 +46,15 @@ def _(detected_dims, mo):
     )
     return (dims_input,)
 
+
 @app.cell
-def _(dims_input, detected_dims):
+def _(detected_dims, dims_input):
     dims_override = dims_input.value if dims_input.value != detected_dims else None
     return (dims_override,)
 
+
 @app.cell
-def _(mo, dims_override, detected_shape):
+def _(detected_shape, dims_override, mo):
     # Can't limit max t-index (similarly z-index) in case user specifies dims_override
     if dims_override is None:
         tstop = detected_shape[0]-1 # Assumes canonical order
@@ -53,6 +62,7 @@ def _(mo, dims_override, detected_shape):
         tstop = None
     t_input = mo.ui.number(start=0, step=1, stop=tstop, value=0, label="t-index")
     return (t_input,)
+
 
 @app.cell
 def _(mo):
@@ -63,8 +73,9 @@ def _(mo):
     )
     return (z_mode_dropdown,)
 
+
 @app.cell
-def _(mo, z_mode_dropdown, dims_override):
+def _(detected_shape, dims_override, mo, z_mode_dropdown):
     if dims_override is None:
         zstop = detected_shape[2]-1
     else:
@@ -81,15 +92,18 @@ def _(mo, z_mode_dropdown, dims_override):
         )
     return (z_input,)
 
+
 @app.cell
 def _(z_input, z_mode_dropdown):
     z_value = None if z_mode_dropdown.value is not None else z_input.value
     return (z_value,)
 
+
 @app.cell
 def _(mo):
     channel_none = mo.ui.checkbox(value=True, label="Composite (selects up to first three channels)")
     return (channel_none,)
+
 
 @app.cell
 def _(channel_none, mo):
@@ -101,8 +115,18 @@ def _(channel_none, mo):
     )
     return channel_input, per_channel_norm
 
+
 @app.cell
-def _(channel_input, channel_none, dims_input, mo, per_channel_norm, t_input, z_input, z_mode_dropdown):
+def _(
+    channel_input,
+    channel_none,
+    dims_input,
+    mo,
+    per_channel_norm,
+    t_input,
+    z_input,
+    z_mode_dropdown,
+):
     mo.vstack([
         mo.md("### Parameters"),
         dims_input,
@@ -115,6 +139,7 @@ def _(channel_input, channel_none, dims_input, mo, per_channel_norm, t_input, z_
     ])
     return
 
+
 @app.cell
 def _(mo, upload):
     load_button = mo.ui.run_button(
@@ -124,8 +149,21 @@ def _(mo, upload):
     load_button
     return (load_button,)
 
+
 @app.cell
-def _(channel_input, channel_none, dims_override, load_button, load_to_png, mo, per_channel_norm, t_input, upload, z_mode_dropdown, z_value):
+def _(
+    channel_input,
+    channel_none,
+    dims_override,
+    load_button,
+    load_to_png,
+    mo,
+    per_channel_norm,
+    t_input,
+    upload,
+    z_mode_dropdown,
+    z_value,
+):
     mo.stop(not load_button.value, mo.md("_Upload an image and click Load to continue._"))
     with mo.capture_stdout() as stdout_buf:
         png_bytes = load_to_png(
@@ -141,6 +179,7 @@ def _(channel_input, channel_none, dims_override, load_button, load_to_png, mo, 
     log_text = stdout_buf.getvalue()
     return log_text, png_bytes
 
+
 @app.cell
 def _(log_text, mo, png_bytes):
     mo.vstack([
@@ -150,6 +189,7 @@ def _(log_text, mo, png_bytes):
         mo.image(png_bytes),
     ])
     return
+
 
 if __name__ == "__main__":
     app.run()

@@ -5,7 +5,6 @@ import sys
 
 CATALOGUE_DIR = os.path.join(os.path.dirname(__file__), '..', 'catalogue')
 
-
 def load_catalogue() -> dict:
     """
     Load image analysis functions from CATALOGUE_DIR for use
@@ -65,6 +64,7 @@ def load_catalogue() -> dict:
             'metadata': metadata,
             'function': fn,
             'tool_spec': metadata_to_ollama_tool(metadata),
+            'defaults': get_parameter_defaults(fn)
         }
 
         # register only after all checks pass
@@ -87,3 +87,16 @@ def metadata_to_ollama_tool(metadata: dict) -> dict:
             }
         }
     }
+
+def get_parameter_defaults(fn) -> dict:
+    """Extract default parameter values from a callable, excluding 'image'."""
+    output = {}
+    if fn.__defaults__ is not None:
+        varnames = list(fn.__code__.co_varnames)[:fn.__code__.co_argcount]
+        default_varnames = varnames[-len(fn.__defaults__):]
+        output.update(dict(zip(default_varnames, fn.__defaults__)))
+    if fn.__kwdefaults__ is not None:
+        output.update(fn.__kwdefaults__)
+    output.pop('image', None) # iamge should always be first argument, not needed by LLM
+    return output
+
