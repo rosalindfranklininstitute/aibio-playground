@@ -16,6 +16,7 @@ services:
       - OLLAMA_KEEP_ALIVE=30m
       - OLLAMA_SCHED_SPREAD=false
       - OLLAMA_NUM_PARALLEL=4
+      - NVIDIA_VISIBLE_DEVICES=-
     tty: true
     deploy:
       resources:
