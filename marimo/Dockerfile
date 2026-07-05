@@ -3,6 +3,7 @@ FROM ghcr.io/marimo-team/marimo:latest-data
 USER root
 
 RUN pip install --no-cache-dir \
+    jinja2 \
     matplotlib \
     seaborn \
     pillow \
