@@ -2,6 +2,7 @@ import inspect
 import json
 import copy
 from dataclasses import dataclass, field
+from functools import partial, reduce
 from jinja2 import Template
 from openai import OpenAI
 
@@ -13,7 +14,7 @@ EXPLAIN_PROMPT = "/app/agent/prompts/explain-prompt.j2"
 MAX_PIPELINE_LENGTH = 10
 
 
-def _get_client() -> OpenAI:
+def get_client() -> OpenAI:
     """Shared Ollama-compatible client reused across agents."""
     return OpenAI(base_url=OLLAMA_BASE_URL, api_key="ignored", timeout=120)
 
@@ -118,13 +119,6 @@ def _strip_code_fences(raw: str) -> str:
         raw = raw.strip()
     return raw
 
-def _get_catalogue_defaults(name: str, catalogue: dict) -> dict:
-    """
-    Return default parameter values for a catalogue function
-    (does not include 'image'; see loader.py)
-    """
-    return catalogue[name]['defaults']
-
 def _json_parse_validate(raw: str, catalogue: dict) -> tuple[list, list]:
     """
     Parse raw JSON from LLM and validate steps against catalogue.
@@ -152,7 +146,7 @@ def _json_parse_validate(raw: str, catalogue: dict) -> tuple[list, list]:
         if name not in catalogue:
             errors.append(f"Step {i+1}: unknown function '{name}'")
             continue
-        defaults = _get_catalogue_defaults(name, catalogue)
+        defaults = catalogue[name]['defaults']
         args = {**defaults, **llm_args}
         valid.append({'name': name, 'args': args})
 
@@ -250,6 +244,18 @@ def _build_user_content(user_message: str, image_b64: str = None, image_mime: st
 class ConversationState:
     messages: list = field(default_factory=list)
 
+def run_pipeline(image, pipeline: list, catalogue: dict):
+    """
+    Apply sequence of catalogue functions to an image.
+    Pipeline is an ordered list of {"name": str, "args": dict} steps
+    """
+    sequence = [
+        partial(catalogue[step['name']]['function'], **step['args'])
+        for step in pipeline
+        if step['name'] in catalogue
+    ]
+    return reduce(lambda im, fn: fn(im), sequence, image)
+
 def step(state: ConversationState, user_message: str, catalogue: dict, client, image_b64: str = None) -> dict:
     """
     Advance chat conversation by one turn.
@@ -258,13 +264,6 @@ def step(state: ConversationState, user_message: str, catalogue: dict, client, i
     from the user. Then, select_pipeline() is called followed by explain_pipeline().
     If the user does not give consent for pipeline construction, or wants to make
     further changes, the Triage agent is called again.
-
-    Parameters
-    ----------
-    image_b64 : str or None
-        Base64-encoded image data to attach to this turn (typically
-        only the first turn of a new conversation, following a fresh
-        upload).
     """
     new_state = copy.copy(state)
     content = _build_user_content(user_message, image_b64)
