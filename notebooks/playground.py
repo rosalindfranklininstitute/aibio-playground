@@ -484,25 +484,26 @@ def _(apply_args_button, args_form, set_pipeline_args):
 @app.cell
 def _(catalogue, get_pipeline_args, inspect, mo, pipeline_widget, step_id_to_name):
     _step_ids = pipeline_widget.value.get("value", [])
-    if not _step_ids:
-        return
-    _args_map = get_pipeline_args()
-    source_accordion = mo.accordion({
-        step_id: mo.vstack([
-            mo.md(
-                "**Arguments:** " +
-                ", ".join(f"{k}={v}" for k, v in _args_map.get(step_id, {}).items())
-                if _args_map.get(step_id) else "_No arguments._"
-            ),
-            mo.ui.code_editor(
-                value=inspect.getsource(catalogue[step_id_to_name(step_id)]['function']),
-                language="python",
-                disabled=True,
-            ),
-        ])
-        for step_id in _step_ids
-        if step_id_to_name(step_id) in catalogue
-    })
+    if _step_ids:
+        _args_map = get_pipeline_args()
+        source_accordion = mo.accordion({
+            step_id: mo.vstack([
+                mo.md(
+                    "**Arguments:** " +
+                    ", ".join(f"{k}={v}" for k, v in _args_map.get(step_id, {}).items())
+                    if _args_map.get(step_id) else "_No arguments._"
+                ),
+                mo.ui.code_editor(
+                    value=inspect.getsource(catalogue[step_id_to_name(step_id)]['function']),
+                    language="python",
+                    disabled=True,
+                ),
+            ])
+            for step_id in _step_ids
+            if step_id_to_name(step_id) in catalogue
+        })
+    else:
+        source_accordion = mo.md("_No functions in pipeline yet._")
     source_accordion
     return
 
