@@ -1,6 +1,6 @@
 # Bioimage Analysis Playground
 <p align="center">
-  <img src="/assets/project5.jpg" />
+  <img src="/assets/project5.jpg" width=450 />
 </p>
 
 ## About The Project
@@ -13,4 +13,4 @@ calls to a local LLM (`gemma4:26b`) to help you construct an image anaylsis
 pipeline, drawing on a curated library of image analysis functions.
 
 ## Funding
-This project is supported by AIBIO's Pilot Project funding call.
+This project is supported by AIBIO's [Pilot Project funding](https://aibio.ac.uk/pilot-funding-call/).
