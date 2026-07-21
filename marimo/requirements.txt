@@ -16,3 +16,5 @@ bioio-nd2
 bioio-ome-tiff
 bioio-tifffile
 imageio
+liffile
+czitools
