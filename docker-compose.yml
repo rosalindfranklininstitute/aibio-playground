@@ -17,7 +17,8 @@ services:
       - OLLAMA_KEEP_ALIVE=30m
       - OLLAMA_SCHED_SPREAD=false
       - OLLAMA_NUM_PARALLEL=4
-      - CUDA_VISIBLE_DEVICES=1
+      - OLLAMA_KEEP_ALIVE=-1
+      - OLLAMA_CONTEXT_LENGTH=65536
     tty: true
     restart: unless-stopped
   marimo:
