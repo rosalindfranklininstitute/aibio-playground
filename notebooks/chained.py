@@ -12,27 +12,30 @@ def _():
     import base64
     from wigglystuff import SortableList, CellTour
     sys.path.insert(0, '/app')
-    from agent.loader import load_catalogue
-    from agent.pipeline_builder import step, ConversationState, get_client, run_pipeline
+    from agent.catalogue_loader import load_catalogue
+    from agent.pipeline_builder import step, ConversationState, get_client, run_pipeline, generate_step_id, step_id_to_name
     from agent.image_tools import decode_image, encode_png
 
     return (
+        CellTour,
         ConversationState,
         SortableList,
         base64,
         decode_image,
         encode_png,
+        generate_step_id,
         get_client,
         inspect,
         load_catalogue,
         mo,
         run_pipeline,
         step,
+        step_id_to_name,
     )
 
 
 @app.cell
-def _():
+def _(CellTour, mo):
     tour = mo.ui.anywidget(
         CellTour(
             steps=[
@@ -58,7 +61,7 @@ def _():
                 },
                 {
                     "cell_name": "available_functions_step",
-                    "title": "5. extra functions",
+                    "title": "5. Add extra functions",
                     "description": "If the agent missed something, tick functions here and add them to the pipeline manually.",
                 },
             ]
@@ -82,7 +85,7 @@ def _(get_client):
 
 @app.cell
 def _(mo):
-    mo.md("## Upload Image")
+    mo.md("## Image Loader")
     return
 
 
@@ -95,24 +98,28 @@ def _(ConversationState, mo):
 
 @app.cell
 def _(ConversationState, set_conv_state, set_image_sent):
-    def new_converation(_):
+    def new_conversation(_):
         set_image_sent(False)
         set_conv_state(ConversationState())
-    return (new_converation,)
+    return (new_conversation,)
 
 
 @app.cell
-def _(new_converation, mo):
-    file_upload = mo.ui.file(
-        label="Upload an image",
-        on_change=new_converation,
+def _(new_conversation, mo):
+    file_browser = mo.ui.file_browser(
+        initial_path='/app/assets',
+        filetypes=None,
+        selection_mode='file',
+        multiple=False,
+        on_change=new_conversation,
+        label='Select an image file',
     )
-    return (file_upload,)
+    return (file_browser,)
 
 
 @app.cell
-def upload_image_step(file_upload):
-    file_upload
+def upload_image_step(file_browser):
+    file_browser
     return
 
 
@@ -130,10 +137,32 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    # Maps function name -> args dict. Kept in sync with get_pipeline.
-    # Is this the best way to manage state?
+    # Maps step id -> args dict. Kept in sync with get_pipeline via
+    # the args_form cell (below), which seeds defaults for any step
+    # id lacking an entry and writes back user edits.
     get_pipeline_args, set_pipeline_args = mo.state({})
     return get_pipeline_args, set_pipeline_args
+
+
+@app.cell
+def _(mo):
+    # DEBUG: seed a known pipeline directly, bypassing the agent.
+    # Useful for testing the pipeline/args/run cells on hardware too
+    # small to run the LLM comfortably. Remove once no longer needed.
+    seed_button = mo.ui.run_button(label="Seed example pipeline (debug)")
+    seed_button
+    return (seed_button,)
+
+
+@app.cell
+def _(seed_button, set_pipeline, set_pipeline_args):
+    if seed_button.value:
+        set_pipeline(["gaussian_blur", "simple_threshold"])
+        set_pipeline_args({
+            "gaussian_blur": {"kernel_size": 5, "sigma": 0},
+            "simple_threshold": {"threshold": None, "invert": False},
+        })
+    return
 
 
 @app.cell
@@ -147,7 +176,8 @@ def _(
     base64,
     catalogue,
     client,
-    file_upload,
+    file_browser,
+    generate_step_id,
     get_conv_state,
     get_image_sent,
     mo,
@@ -161,8 +191,9 @@ def _(
     def chat_agent(messages, config):
         image_b64 = None
         # TODO: include import-to-png logic to handle scientific images etc.
-        if file_upload.value and not get_image_sent():
-            image_b64 = base64.b64encode(file_upload.value[0].contents).decode('utf-8')
+        if file_browser.value and not get_image_sent():
+            path = file_browser.path(index=0)
+            image_b64 = base64.b64encode(path.read_bytes()).decode('utf-8')
             set_image_sent(True)
 
         user_message = messages[-1].content
@@ -171,15 +202,21 @@ def _(
         set_reasoning(result['reasoning'])
 
         if result['pipeline'] is not None:
-            set_pipeline([s['name'] for s in result['pipeline']])
-            set_pipeline_args({s['name']: s['args'] for s in result['pipeline']})
+            step_ids = []
+            args_map = {}
+            for s in result['pipeline']:
+                sid = generate_step_id(s['name'], step_ids)
+                step_ids.append(sid)
+                args_map[sid] = s['args']
+            set_pipeline(step_ids)
+            set_pipeline_args(args_map)
 
         return result['message']
 
     chat = mo.ui.chat(
         chat_agent,
         max_height=500,
-        disabled=not file_upload.value,
+        disabled=not file_browser.value,
     )
     return (chat,)
 
@@ -228,32 +265,131 @@ def pipeline_sortablelist(SortableList, get_pipeline, mo):
 
 
 @app.cell
-def _(catalogue, get_pipeline_args, pipeline_widget, set_pipeline_args):
-    # Sync pipeline_args with SortableList's state
-    # drop args for removed functions, fill defaults for names added via table
-    _names = pipeline_widget.value.get("value", [])
-    _current_args = get_pipeline_args()
-    _synced_args = {
-        n: _current_args.get(n, catalogue[n]['defaults'])
-        for n in _names
-        if n in catalogue
-    }
-    if _synced_args != _current_args:
-        set_pipeline_args(_synced_args)
+def _(get_pipeline, pipeline_widget, set_pipeline):
+    # Detect removals (not reorders) in the SortableList and mirror
+    # them into get_pipeline, so args_form correctly drops removed
+    # steps. Pure reordering (same set of ids) never calls
+    # set_pipeline here, so args_form's widgets stay undisturbed.
+    _widget_ids = pipeline_widget.value.get("value", [])
+    _tracked_ids = get_pipeline()
+    if set(_widget_ids) < set(_tracked_ids):  # proper subset = something removed
+        set_pipeline(_widget_ids)
     return
 
 
 @app.cell
-def _(catalogue, inspect, mo, pipeline_widget):
-    _names = pipeline_widget.value.get("value", [])
-    if _names:
-        source_accordion = mo.accordion({
-            name: mo.ui.code_editor(
-                value=inspect.getsource(catalogue[name]['function']),
-                language="python",
+def _(mo):
+    mo.md("### Edit Arguments")
+    return
+
+
+@app.cell
+def _(mo):
+    def make_widget(param_type, value):
+        if param_type == "number":
+            return mo.ui.number(value=value)
+        elif param_type == "boolean":
+            return mo.ui.checkbox(value=bool(value))
+        else:
+            return mo.ui.text(value=str(value))
+    return (make_widget,)
+
+
+@app.cell
+def _(mo):
+    get_args_seed, set_args_seed = mo.state({})
+    return get_args_seed, set_args_seed
+
+
+@app.cell
+def _(catalogue, get_args_seed, get_pipeline, get_pipeline_args, set_args_seed, step_id_to_name):
+    # Reseed only when the SET of step ids changes (add/remove).
+    # Uses get_pipeline (not pipeline_widget) since that's stable
+    # across drag-reordering — SortableList owns order, this only
+    # needs to know which steps exist.
+    _step_ids = get_pipeline()
+    _current_seed = get_args_seed()
+    _current_args = get_pipeline_args()
+    _new_seed = {
+        sid: _current_args.get(sid, _current_seed.get(sid, catalogue[step_id_to_name(sid)]['defaults']))
+        for sid in _step_ids
+        if step_id_to_name(sid) in catalogue
+    }
+    if set(_new_seed.keys()) != set(_current_seed.keys()):
+        set_args_seed(_new_seed)
+    return
+
+
+@app.cell
+def _(catalogue, get_args_seed, get_pipeline, make_widget, mo, step_id_to_name):
+    _step_ids = get_pipeline()
+    _seed = get_args_seed()
+
+    _forms = {}
+    for _step_id in _step_ids:
+        _name = step_id_to_name(_step_id)
+        if _name not in catalogue:
+            continue
+        _params = {
+            k: v for k, v in catalogue[_name]['metadata']['parameters'].items()
+            if k != 'image'
+        }
+        _defaults = catalogue[_name]['defaults']
+        _existing = _seed.get(_step_id, {})
+        _forms[_step_id] = mo.ui.dictionary({
+            param_name: make_widget(
+                param_spec.get('type', 'string'),
+                _existing.get(param_name, _defaults.get(param_name)),
             )
-            for name in _names
-            if name in catalogue
+            for param_name, param_spec in _params.items()
+        })
+
+    args_form = mo.ui.dictionary(_forms) if _forms else None
+    (
+        mo.vstack([
+            mo.vstack([mo.md(f"**{sid}**"), args_form[sid]])
+            for sid in _forms.keys()
+        ])
+        if args_form is not None
+        else mo.md("_No functions in pipeline yet._")
+    )
+    return (args_form,)
+
+
+@app.cell
+def _(mo):
+    apply_args_button = mo.ui.run_button(label="Apply argument changes")
+    apply_args_button
+    return (apply_args_button,)
+
+
+@app.cell
+def _(apply_args_button, args_form, set_pipeline_args):
+    if apply_args_button.value and args_form is not None:
+        set_pipeline_args(args_form.value)
+    return
+
+
+@app.cell
+def _(catalogue, get_pipeline_args, inspect, mo, pipeline_widget, step_id_to_name):
+    _step_ids = pipeline_widget.value.get("value", [])
+    if _step_ids:
+        _args_map = get_pipeline_args()
+        source_accordion = mo.accordion({
+            step_id: mo.vstack([
+                mo.md(
+                    "**Arguments:** " +
+                    ", ".join(f"{k}={v}" for k, v in _args_map.get(step_id, {}).items())
+                    if _args_map.get(step_id) else "_No arguments._"
+                ),
+                mo.ui.code_editor(
+                    value=inspect.getsource(catalogue[step_id_to_name(step_id)]['function']),
+                    language="python",
+                    disabled=True,
+                ),
+            ])
+            for step_id in _step_ids
+            if step_id_to_name(step_id) in catalogue
         })
     else:
         source_accordion = mo.md("_No functions in pipeline yet._")
@@ -295,27 +431,31 @@ def _(
     catalogue,
     decode_image,
     encode_png,
-    file_upload,
+    file_browser,
     get_pipeline_args,
     mo,
     pipeline_widget,
     run_button,
     run_pipeline,
+    step_id_to_name,
 ):
     mo.stop(not run_button.value, mo.md("Press Run to execute."))
-    mo.stop(not file_upload.value, mo.md("Upload an image first."))
+    mo.stop(not file_browser.value, mo.md("Load an image first."))
 
-    _names = pipeline_widget.value.get("value", [])
-    mo.stop(not _names, mo.md("No functions in pipeline."))
+    _step_ids = pipeline_widget.value.get("value", [])
+    mo.stop(not _step_ids, mo.md("No functions in pipeline."))
 
     _args_map = get_pipeline_args()
     _pipeline = [
-        {"name": n, "args": _args_map.get(n, catalogue[n]['defaults'])}
-        for n in _names
-        if n in catalogue
+        {
+            "name": step_id_to_name(sid),
+            "args": _args_map.get(sid, catalogue[step_id_to_name(sid)]['defaults']),
+        }
+        for sid in _step_ids
+        if step_id_to_name(sid) in catalogue
     ]
 
-    _image = decode_image(file_upload.value[0].contents)
+    _image = decode_image(file_browser.path(index=0).read_bytes())
     _output = run_pipeline(_image, _pipeline, catalogue)
 
     mo.image_compare(
@@ -338,7 +478,7 @@ def available_functions_step(catalogue, mo):
         data=[
             {
                 "name": name,
-                "description": entry['metadata']['description'][:100] + "..."
+                "description": entry['metadata']['description']
             }
             for name, entry in catalogue.items()
         ],
@@ -357,15 +497,15 @@ def _(mo):
 
 
 @app.cell
-def _(add_button, catalogue_table, get_pipeline, set_pipeline):
+def _(add_button, catalogue_table, generate_step_id, get_pipeline, set_pipeline):
     if add_button.value and catalogue_table.value:
         selected_names = [row['name'] for row in catalogue_table.value]
         current = get_pipeline()
-        # TODO: ability to have functions repeated with separate arguments
-        # currently just prevent duplications as they would have the same argument
-        # e.g. assign id to each function
-        # to_add = [n for n in selected_names if n not in current] # comment -> duplicates allowed (same arguments)
-        set_pipeline(current + to_add)
+        new_ids = list(current)
+        for name in selected_names:
+            sid = generate_step_id(name, new_ids)
+            new_ids.append(sid)
+        set_pipeline(new_ids)
     return
 
 
