@@ -1,6 +1,7 @@
-import io, sys, os, base64, tempfile
+import io, sys, os, base64, json, tempfile
 import imageio.v3 as iio
 import numpy as np
+import pandas as pd
 from bioio import BioImage
 from bioio_tifffile import Reader as bioio_tifffile_reader
 from bioio_ome_tiff import Reader as bioio_ome_tiff_reader
@@ -8,46 +9,9 @@ from bioio_czi import Reader as bioio_czi_reader
 from bioio_imageio import Reader as bioio_imageio_reader
 from bioio_lif import Reader as bioio_lif_reader
 from bioio_nd2 import Reader as bioio_nd2_reader
-
-def build_image_message(text, file_upload):
-    """
-    Encode an image uploaded to marimo and package into a multipart
-    message dict (OpenAI spec) along with a user text prompt.
-
-    Parameters
-    ----------
-    text : str
-        The user's text message.
-    file_upload : mo.ui.file
-        Marimo file upload element.
-
-    Returns
-    -------
-    dict
-        Message dict with role and content that can be sent to Ollama
-    """
-    if not file_upload.value:
-        return {"role": "user", "content": text}
-
-    image_data = base64.b64encode(
-        file_upload.value[0].contents
-    ).decode('utf-8')
-
-    return {
-        "role": "user",
-        "content": [
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{image_data}"
-                }
-            },
-            {
-                "type": "text",
-                "text": text
-            }
-        ]
-    }
+from liffile import LifFile
+from czitools.metadata_tools.czi_metadata import CziMetadata
+from czitools.utils.misc import md2dataframe
 
 def _normalise_to_uint8(arr, global_max=None, global_min=None):
     arr = arr.astype(np.float32)
@@ -66,27 +30,38 @@ READERS = {
         'tifffile':  {'reader': bioio_tifffile_reader, 'ext': ['.tif', '.tiff']},
 }
 
-SUPPORTED_EXT = [ext for reader in READERS for ext in READERS[reader]['ext']] 
+SUPPORTED_EXT = [ext for reader in READERS for ext in READERS[reader]['ext']]
 
-def bioio_loader(path_or_bytes: str | bytes, filename: str | None = None) -> BioImage:
+def _resolve_path(path_or_bytes: str | bytes, filename: str | None = None):
+    """Return (path, is_temporary) for an existing file path or 
+    tempoary file for bytes input (keep track of is_temporary so can delete later)"""
     if isinstance(path_or_bytes, bytes):
         assert filename is not None, 'filename required when passing bytes'
         suffix = os.path.splitext(filename)[1]
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             tmp.write(path_or_bytes)
             tmp.flush()
-            return _bioio_loader(tmp.name, filename)
-    return _bioio_loader(path_or_bytes)
+        return tmp.name, True
+    return path_or_bytes, False
 
-def _bioio_loader(path: str, original_name: str | None = None) -> BioImage:
+def bioio_loader(path_or_bytes: str | bytes, filename: str | None = None):
+    path, is_tmp = _resolve_path(path_or_bytes, filename)
+    return _bioio_loader(path, filename)
+
+def _bioio_loader(path: str, original_name: str | None = None):
     freader = None
+    reader_name = None
     fname = original_name if original_name is not None else os.path.basename(path)
-    for reader_name, reader_val in READERS.items():
-        for ext in reader_val['ext']:
-            if path.endswith(ext):
-                fext = ext
-                freader = reader_val['reader']
-                break
+    for _reader_name, _reader_val in READERS.items():
+        if any(path.endswith(ext) for ext in _reader_val['ext']):
+            reader_name = _reader_name
+            freader = _reader_val['reader']
+            break
+        #for ext in reader_val['ext']:
+        #    if path.endswith(ext):
+        #        fext = ext
+        #        freader = reader_val['reader']
+        #        break
     if freader is None:
         raise TypeError(f'Unsupported file extension for {fname}')
     # reader_name should be set
@@ -102,6 +77,84 @@ def inspect_dims(path_or_bytes: str | bytes, fname: str | None = None) -> tuple[
     img = bioio_loader(path_or_bytes, fname)
     return img.dims._order, img.shape
 
+def _standard_metadata_df(img: BioImage) -> pd.DataFrame:
+    """Cross-format curated metadata (pixel sizes, objective, etc.), free since img is already loaded."""
+    sm = img.standard_metadata.to_dict()
+    return pd.DataFrame(list(sm.items()), columns=['Parameter', 'Value'])
+
+def _read_czi_metadata(path: str) -> pd.DataFrame:
+    """Full CZI metadata dump via czitools -> pandas DataFrame."""
+    mdata = CziMetadata(path)
+    return md2dataframe(mdata, reduced_params=False)
+
+def _flatten_dict(d: dict, parent_key: str = '') -> dict:
+    """Flatten a nested dict into dotted-key: value pairs."""
+    items = {}
+    for k, v in d.items():
+        key = f'{parent_key}.{k}' if parent_key else str(k)
+        if isinstance(v, dict):
+            # recurse to handle nested dictionaries
+            items.update(_flatten_dict(v, key))
+        else:
+            items[key] = v
+    return items
+
+def _read_lif_metadata(path: str):
+    """LIF metadata (liffile) -> pandas DataFrame"""
+    with LifFile(path) as lif:
+        if not lif.images:
+            return pd.DataFrame(columns=['Parameter', 'Value'])
+        image = lif.images[0] # N.B. Take first image metadata ONLY (limitation)
+        flat = _flatten_dict(dict(image.attrs))
+        flat['Name'] = image.name
+        flat['Sizes'] = image.sizes
+    return pd.DataFrame(list(flat.items()), columns=['Parameter', 'Value'])
+
+def inspect_metadata(path_or_bytes: str | bytes, fname: str | None = None, img: BioImage | None = None):
+    """
+    Extra image metadata to a pandas DataFrame. Load from path or image bytes (requires a file name)
+    or use a BioImage object that was already loaded
+    """
+    if not isinstance(path_or_bytes, str):
+        assert fname is not None, 'fname required when passing bytes'
+    else:
+        fname = path_or_bytes
+    path, is_tmp = _resolve_path(path_or_bytes, fname)
+    if img is None:
+        # Image has not been loaded yet, so load it
+        img = _bioio_loader(path, fname)
+    frames = [_standard_metadata_df(img)]
+    if fname.endswith('.czi'):
+        frames.append(_read_czi_metadata(path))
+    elif fname.endswith('.lif'):
+        frames.append(_read_lif_metadata(path))
+    return pd.concat(frames, ignore_index=True)
+
+def inspect_image(path_or_bytes: str | bytes, fname: str | None = None) -> dict:
+    """
+    Inspect a microscopy image: filetype, dims/shape, and metadata
+    """
+    if not isinstance(path_or_bytes, str):
+        assert fname is not None, 'fname required when passing bytes'
+    else:
+        fname = path_or_bytes
+    path, is_tmp = _resolve_path(path_or_bytes, fname)
+    img = _bioio_loader(path, fname)
+    filetype = os.path.splitext(fname)[1].lstrip('.').lower()
+    return {
+        'filetype': filetype,
+        'dims': img.dims._order,
+        'shape': img.shape,
+        'metadata': inspect_metadata(path, fname, img=img),  # reuses img, no second load
+    }
+
+def dataframe_to_dict(df: pd.DataFrame, paramcol: str = 'Parameter', keycol: str = 'Value') -> dict:
+    """Flatten a Parameter/Value metadata DataFrame into a plain dict."""
+    return dict(zip(df[paramcol], df[keycol]))
+
+def metadata_to_json(df: pd.DataFrame, **kwargs) -> str:
+    """Serialise a metadata DataFrame to a JSON string, e.g. for inclusion in an LLM prompt."""
+    return json.dumps(dataframe_to_dict(df, **kwargs), default=str, indent=2)
 
 def load_to_png(
         path_or_bytes: str | bytes,
@@ -120,7 +173,7 @@ def load_to_png(
     assert z is None or z_mode is None, 'Only one of parameters z, z_max should be set'
     mode_to_func = {'max': np.max, 'min': np.min, 'mean': np.mean}
     if z_mode is not None:
-        assert z_mode in mode_to_func, "z_mode must be 'max', 'min', 'mean' or None" 
+        assert z_mode in mode_to_func, "z_mode must be 'max', 'min', 'mean' or None"
 
     img = bioio_loader(path_or_bytes, fname)
     dims_str = img.dims._order
@@ -137,7 +190,7 @@ def load_to_png(
     data = np.asarray(img.get_image_data(dims_str))
 
     # canonical Order TCZYX or TCZYXS
-    
+
     if  data.shape[0] > 1:
         print(f'Taking timepoint T={t}')
     data = data[t]
@@ -164,7 +217,7 @@ def load_to_png(
         z_idx = z if z is not None else data.shape[0] // 2
         if data.shape[0] > 1:
             print(f'Taking Z={z_idx} slice')
-        data = data[z_idx] 
+        data = data[z_idx]
     # ~~~ YXC ~~~
     # Channel projection
     num_channels = data.shape[-1]
@@ -210,5 +263,3 @@ def load_to_png(
     metadata = {} # Todo e.g. and dimensional data from initial image
 
     return png_bytes
-
-

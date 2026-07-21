@@ -303,3 +303,17 @@ def step(state: ConversationState, user_message: str, catalogue: dict, client, i
         "pipeline": pipeline_result['pipeline'],
         "reasoning": result['reasoning'],
     }
+
+def step_id_to_name(step_id: str):
+    """Strip trailing #N identifier to leave pure function name"""
+    return step_id.split('#')[0].strip()
+
+def generate_step_id(name: str, existing_ids: list):
+    """Generate the next identifier for function name"""
+    if name not in existing_ids:
+        # Not already in pipeline, use name for identifier
+        return name
+    n = 2
+    while f'{name} #{n}' in existing_ids:
+        n += 1
+    return f'{name} #{n}'
