@@ -1,27 +1,12 @@
 FROM ghcr.io/marimo-team/marimo:latest-data
 
 USER root
-
-RUN pip install --no-cache-dir \
-    jinja2 \
-    matplotlib \
-    seaborn \
-    pillow \
-    opencv-python-headless==4.12.0.88 \
-    openai \
-    scikit-image \
-    pooch \
-    chromadb \
-    wigglystuff \
-    bioio \
-    bioio-czi \
-    bioio-imageio \
-    bioio-lif \
-    bioio-nd2 \
-    bioio-ome-tiff \
-    bioio-tifffile \
-    imageio
+COPY requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
 
 USER appuser
+
+RUN mkdir -p /home/appuser/.config/maltplotlib
+ENV MPLCONFIGDIR=/home/appuser/.config/matplotlib
 
 COPY marimo.toml /home/appuser/.config/marimo/marimo.toml
