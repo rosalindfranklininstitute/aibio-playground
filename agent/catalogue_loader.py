@@ -1,23 +1,33 @@
 import importlib.util
 import os
 import sys
+import inspect
 
 
 CATALOGUE_DIR = os.path.join(os.path.dirname(__file__), '..', 'catalogue')
 
+def _extract_defaults(fn):
+    """Default argument values for a catalogue function, excluding 'image'"""
+    sig = inspect.signature(fn)
+    return {
+        name: param.default
+        for name, param in sig.parameters.items()
+        if name != 'image' and param.default is not inspect.Parameter.empty
+    }
 
-def load_catalogue() -> dict:
+
+def load_catalogue():
     """
     Load image analysis functions from CATALOGUE_DIR for use
     in agent workflow.
 
-    Note functions are loaded to be callabe, although for now
-    the agent will only pass the source code back, not actually
-    have it executed in the backend (see tool_selector.py)
-
     Catalogue entries are .py files containing METADATA
     (translated to a tool_spec for a model in Ollama) and
     a function. The function name must match metadata['name'].
+
+    Each function should have a single positional argument - the input
+    image - and then any number of optional arguments, which should
+    have defaults and a LLM-readable description in the METADATA
 
     The returned dictionary is keyed by function name, which
     must be unique across the catalogue.
@@ -26,8 +36,8 @@ def load_catalogue() -> dict:
     -------
     catalogue : dict
         Key is name of function in catalogue, value is a
-        dictionary with 'metadata', 'function' and 'tool_spec'
-        (a trivial derivative of 'metadata').
+        dictionary with 'metadata', 'function', 'tool_spec'
+        (a derivative of 'metadata') and 'defaults'
         The 'function' value is a callable.
     """
     catalogue = {}
@@ -65,6 +75,7 @@ def load_catalogue() -> dict:
             'metadata': metadata,
             'function': fn,
             'tool_spec': metadata_to_ollama_tool(metadata),
+            'defaults': _extract_defaults(fn),
         }
 
         # register only after all checks pass
@@ -73,7 +84,7 @@ def load_catalogue() -> dict:
     return catalogue
 
 
-def metadata_to_ollama_tool(metadata: dict) -> dict:
+def metadata_to_ollama_tool(metadata: dict):
     """Convert a METADATA dict to an Ollama-compatible tool spec."""
     return {
         "type": "function",

@@ -19,7 +19,7 @@ METADATA = {
         },
         "sigma":{
             "type": "number",
-            "decription": "the standard deviation or sigma of the smoothing kernel."
+            "description": "the standard deviation or sigma of the smoothing kernel."
             "Defaults to 0."
         }
     },
