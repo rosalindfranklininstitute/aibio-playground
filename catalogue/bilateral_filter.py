@@ -21,12 +21,12 @@ METADATA = {
         },
         "sigma_colour":{
             "type": "number",
-            "decription": "the standard deviation or sigma for the colour filter."
+            "description": "the standard deviation or sigma for the colour filter."
             "Defaults to 50."
         },
         "sigma_space":{
             "type": "number",
-            "decription": "the standard deviation or sigma for the space filter."
+            "description": "the standard deviation or sigma for the space filter."
             "Defaults to 5."
         }
     },
