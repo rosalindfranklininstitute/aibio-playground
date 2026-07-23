@@ -23,11 +23,11 @@ def otsu_threshold(image):
     #     only accepts single-channel images
     import cv2
     import numpy as np
+    import warnings
 
     assert image.ndim <= 3, "Method only accepts one single-channel image, multi-channel images will be converted to greyscale"
     if image.ndim == 3:
-        # with mo.redirect_stdout():
-        #     print("Warning: passed multichannel image, converting to greyscale")
+        warnings.warn("Passed multichannel image, converting to greyscale")
         image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     if image.dtype == np.uint16:
         maxval = 65535
