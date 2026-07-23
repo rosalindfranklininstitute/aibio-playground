@@ -8,18 +8,23 @@ METADATA = {
         "therefore bright."
     ),
     "parameters": {
-        "image": {
-            "type": "string",
-            "description": "Numpy array with image data"
+        "image_data": {
+            "type": "dict",
+            "description": "Dictionary containing original image ('source', Numpy array), "
+            "latest image to be processed ('current', Numpy array), and any data from current/prior "
+            "processing steps ('info', dict)"
         },
     },
-    "required": ["image"],
+    "required": ["image_data"],
     "tags": ["invert", "intensity", "foreground", "background"],
     "requires": ["opencv-python-headless"],
 }
 
 
-def invert(image):
+def invert(image_data):
     import cv2
-    invert = cv2.bitwise_not(image)    
-    return invert 
+
+    image = image_data['current']
+    invert = cv2.bitwise_not(image)
+    image_data['current'] = invert    
+    return image_data 

@@ -7,9 +7,11 @@ METADATA = {
         "Returns a labelled segmentation mask. Input image must be binary. "
     ),
     "parameters": {
-        "image": {
-            "type": "string",
-            "description": "Numpy array with image data. Must be binary. "
+        "image_data": {
+            "type": "dict",
+            "description": "Dictionary containing original image ('source', Numpy array), "
+            "latest image to be processed ('current', Numpy array), and any data from current/prior "
+            "processing steps ('info', dict)"
         },
         "footprint": {
             "type": "number",
@@ -28,13 +30,13 @@ METADATA = {
             "If True, a one-pixel wide line (with label 0) will separate the identified regions."
         },
     },
-    "required": ["image"],
+    "required": ["image_data"],
     "tags": ["segmentation", "distance transform", "watershed", "feature extraction", "binary", "labels", "foreground"],
     "requires": ["scikit-image","scipy","numpy"],
 }
 
 
-def watershed(image, footprint = None, threshold = None, show_boundaries = False):
+def watershed(image_data, footprint = None, threshold = None, show_boundaries = False):
     # This doesn't take in to account different image types yet
     import numpy as np
     import skimage as ski
@@ -44,6 +46,8 @@ def watershed(image, footprint = None, threshold = None, show_boundaries = False
     warnings.warn(message=("Heads up: the watershed algorithm requires a binary image, and outputs labels. "
     "This should be one of the final steps before measurement."))
     
+    image = image_data['current']
+
     assert len(np.unique(image)) <= 2, "Input image should be binary (2 class)"
     
     distance = ndi.distance_transform_edt(image)
@@ -63,4 +67,5 @@ def watershed(image, footprint = None, threshold = None, show_boundaries = False
 
     # because watershed considers valleys (not peaks) we need to invert the distance matrix
     labels = ski.segmentation.watershed(image = -distance, markers = seeds, mask = image, watershed_line = show_boundaries)
-    return labels 
+    image_data['current'] = labels
+    return image_data 

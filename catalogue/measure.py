@@ -10,46 +10,33 @@ METADATA = {
         "['label','perimeter','area','centroid','num_pixels']"
     ),
     "parameters": {
-        "image": {
-            "type": "string",
-            "description": "Numpy array with image label data. "
-        },
-        "original": {
-            "type": "string",
-            "description": "Numpy array with original input image. "
+        "image_data": {
+            "type": "dict",
+            "description": "Dictionary containing original image ('source', Numpy array), "
+            "latest image to be processed ('current', Numpy array), and any data from current/prior "
+            "processing steps ('info', dict)"
         },
         "extra_properties": {
             "type": "list",
             "description": "List of any additional properties to include. "
             "Must be a property from skimage.measure.regionprops"
         },
-        "use_original": {
-            "type": "bool",
-            "description": "Whether to use the original input image from the user "
-            "to measure intensity-based properties. Defaults to False. "
-        },
     },
-    "required": ["image"],
+    "required": ["image_data"],
     "tags": ["measure", "labels", "feature extraction", "shape", "intensity", "size"],
     "requires": ["scikit-image","scipy","numpy"],
 }
 
 
-def measure_region_properties(image, original, extra_properties = [], use_original_image = False):
-    # Currently intensity isn't supported as we need to rewrite catalogue 
-    # in order to pass the orginial image through the pipeline
+def measure_region_properties(image_data, extra_properties = []):
     import skimage as ski
-    
-    original = original if original is not None else image 
-    
+
     defaults = ["label","perimeter","area","centroid","num_pixels"]
     all_props = set.union(set(defaults),set(extra_properties))
 
-    if use_original_image == True:
-        props = ski.measure.regionprops_table(label_image = image,
-                                              intensity_image = original,
-                                              properties = tuple(all_props))  
-    else:
-        props = ski.measure.regionprops_table(label_image = image,
-                                              properties = tuple(all_props))
-    return image, original, props 
+    props = ski.measure.regionprops_table(label_image = image_data['current'],
+                                          intensity_image = image_data['source'],
+                                          properties = tuple(all_props))  
+
+    image_data['info']['measurements'] = props
+    return image_data

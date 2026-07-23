@@ -11,9 +11,11 @@ METADATA = {
         "Currently implemented with a square kernel only."
     ),
     "parameters": {
-        "image": {
-            "type": "string",
-            "description": "Numpy array with image data. Must be grayscale."
+        "image_data": {
+            "type": "dict",
+            "description": "Dictionary containing original image ('source', Numpy array), "
+            "latest image to be processed ('current', Numpy array), and any data from current/prior "
+            "processing steps ('info', dict)"
         },
         "kernel_size": {
             "type": "number",
@@ -26,12 +28,12 @@ METADATA = {
             "Must be positive. Defaults to 1."
         },
     },
-    "required": ["image"],
+    "required": ["image_data"],
     "tags": ["morphological", "transform", "erosion", "binary", "feature extraction", "foreground"],
     "requires": ["opencv-python-headless","numpy"],
 }
 
-def erosion(image, kernel_size = 5, iterations = 1):
+def erosion(image_data, kernel_size = 5, iterations = 1):
     import cv2
     import numpy as np
 
@@ -39,5 +41,8 @@ def erosion(image, kernel_size = 5, iterations = 1):
 
     kernel = np.ones((kernel_size,kernel_size),np.uint8)
 
+    image = image_data['current']
+
     erosion = cv2.erode(image,kernel=kernel,iterations=iterations)
-    return erosion
+    image_data['current'] = erosion
+    return image_data

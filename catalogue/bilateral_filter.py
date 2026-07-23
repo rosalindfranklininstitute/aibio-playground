@@ -10,9 +10,11 @@ METADATA = {
         "Only takes 8U and 32F image types. Can be single or multi-channel. "
     ),
     "parameters": {
-        "image": {
-            "type": "string",
-            "description": "Numpy array with image data"
+        "image_data": {
+            "type": "dict",
+            "description": "Dictionary containing original image ('source', Numpy array), "
+            "latest image to be processed ('current', Numpy array), and any data from current/prior "
+            "processing steps ('info', dict)"
         },
         "distance": {
             "type": "number",
@@ -21,22 +23,22 @@ METADATA = {
         },
         "sigma_colour":{
             "type": "number",
-            "decription": "the standard deviation or sigma for the colour filter."
+            "description": "The standard deviation or sigma for the colour filter. "
             "Defaults to 50."
         },
         "sigma_space":{
             "type": "number",
-            "decription": "the standard deviation or sigma for the space filter."
+            "description": "The standard deviation or sigma for the space filter. "
             "Defaults to 5."
         }
     },
-    "required": ["image"],
+    "required": ["image_data"],
     "tags": ["smoothing", "denoise", "blur", "filter", "pre-processing"],
     "requires": ["opencv-python-headless"],
 }
 
 
-def bilateral_filter(image, distance = None, sigma_colour = 50, sigma_space = 5):
+def bilateral_filter(image_data, distance = None, sigma_colour = 50, sigma_space = 5):
     # Bilateral filtering is only implemented for CV_8U and CV_32F images
     # Currently only implemented conversion from CV_16U to CV_8U, FP not supported. 
     import cv2
@@ -49,6 +51,8 @@ def bilateral_filter(image, distance = None, sigma_colour = 50, sigma_space = 5)
 
     assert dist <= 9 and dist > 0, "Distance must be positive. Larger values of distance will make the analysis very slow. Recommended value = 5"
     
+    image = image_data['current']
+
     if image.dtype == np.uint8:
         blurred_image = cv2.bilateralFilter(image, dist, sigma_colour, sigma_space)
     elif image.dtype == np.uint16:
@@ -59,4 +63,5 @@ def bilateral_filter(image, distance = None, sigma_colour = 50, sigma_space = 5)
         raise TypeError("Image must be 8 or 16bit depth") 
 
     blurred_image = cv2.bilateralFilter(image, dist, sigma_colour, sigma_space)
-    return blurred_image
+    image_data['current'] = blurred_image
+    return image_data
