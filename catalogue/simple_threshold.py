@@ -21,7 +21,7 @@ METADATA = {
             "description": "The intensity value used in thresholding. If None, computed from the image mean."
         },
         "invert": {
-            "type": "bool",
+            "type": "boolean",
             "description": "Whether to apply the binary inverse thresholding method (True) or the standard binary (False). Defaults to False."
         },
     },
@@ -50,7 +50,9 @@ def simple_threshold(image_data, threshold = None, invert = False):
     if invert == False:
         simple_threshold = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY)
     elif invert == True:
-        simple_threshold = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY_INV)
+        _, simple_thresh = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY_INV)
+
+    print(simple_thresh)
     
     image_data['info']['threshold_value'] = thresh
     image_data['current'] = simple_threshold
