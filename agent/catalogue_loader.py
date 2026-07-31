@@ -7,12 +7,12 @@ import inspect
 CATALOGUE_DIR = os.path.join(os.path.dirname(__file__), '..', 'catalogue')
 
 def _extract_defaults(fn):
-    """Default argument values for a catalogue function, excluding 'image'"""
+    """Default argument values for a catalogue function, excluding 'image_data'"""
     sig = inspect.signature(fn)
     return {
         name: param.default
         for name, param in sig.parameters.items()
-        if name != 'image' and param.default is not inspect.Parameter.empty
+        if name != 'image_data' and param.default is not inspect.Parameter.empty
     }
 
 

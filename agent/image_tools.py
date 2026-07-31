@@ -3,14 +3,15 @@ import numpy as np
 
 
 def decode_image(raw_bytes: bytes) -> np.ndarray:
-    """Decode raw uploaded bytes into a BGR image array."""
+    """Decode raw uploaded bytes into an RGB image array (currently unused by project)."""
     raw = np.frombuffer(raw_bytes, np.uint8)
-    # Note in the case of colour images, the decoded images will have the channels stored in B G R order.
-    return cv2.imdecode(raw, cv2.IMREAD_COLOR)
-
+    bgr = cv2.imdecode(raw, cv2.IMREAD_COLOR)
+    return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 def encode_png(image: np.ndarray) -> bytes:
-    """Encode an image array as PNG bytes for display."""
+    """Encode an image array as PNG bytes. Assumes RGB channel order for 3-channel images."""
+    if image.ndim == 3 and image.shape[-1] == 3:
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     return cv2.imencode(".png", image)[1].tobytes()
 
 def format_metadata_for_llm(metadata: dict):

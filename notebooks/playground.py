@@ -7,13 +7,13 @@ app = marimo.App(width="medium")
 @app.cell
 def _():
     import marimo as mo
-    import base64, html, inspect, os, sys
+    import base64, html, inspect, os, sys, traceback
     from wigglystuff import SortableList, CellTour
     sys.path.insert(0, '/app')
     from agent.catalogue_loader import load_catalogue
     from agent.pipeline_builder import step, ConversationState, get_client, run_pipeline, generate_step_id, step_id_to_name
     from agent.image_tools import decode_image, encode_png
-    from agent.image_loader import inspect_image, load_to_png, SUPPORTED_EXT
+    from agent.image_loader import inspect_image, load_image, SUPPORTED_EXT
 
     return (
         CellTour,
@@ -198,12 +198,13 @@ def _(mo, upload):
 
 @app.cell
 def _(mo):
-    get_llm_png, set_llm_png = mo.state(None)
-    return get_llm_png, set_llm_png
+    get_loaded_image, set_loaded_image = mo.state(None)
+    return get_loaded_image, set_loaded_image
 
 @app.cell
-def _(fname, file_bytes, load_to_png, set_llm_png):
-    set_llm_png(load_to_png(file_bytes, fname=fname))
+def _(fname, file_bytes, load_image, set_loaded_image):
+    _png, _array = load_image(file_bytes, fname=fname)
+    set_loaded_image({'png': _png, 'array': _array})
     return
 
 @app.cell
@@ -215,9 +216,9 @@ def _(
     fname,
     file_bytes,
     info,
-    load_to_png,
+    load_image,
     reload_button,
-    set_llm_png,
+    set_loaded_image,
     t_enabled,
     t_input,
     z_enabled,
@@ -225,22 +226,23 @@ def _(
 ):
     if reload_button.value:
         _dims_override = dims_input.value if dims_input.value != info["dims"] else None
-        set_llm_png(load_to_png(
+        _png, _array = load_image(
             file_bytes,
             fname=fname,
             dims_override=_dims_override,
             t=int(t_input.value) if t_enabled else 0,
             z=int(z_input.value) if z_enabled else None,
             channel=int(channel_input.value) if (channel_enabled and not channel_none.value) else None,
-        ))
+        )
+        set_loaded_image({'png': _png, 'array': _array})
     return
 
 @app.cell
-def _(get_llm_png, mo):
-    _png = get_llm_png()
+def _(get_loaded_image, mo):
+    _loaded = get_loaded_image()
     (
-        mo.vstack([mo.md("### Image to be processed"), mo.image(_png, width=400)])
-        if _png else mo.md("_Upload an image first_")
+        mo.vstack([mo.md("### Image to be processed"), mo.image(_loaded['png'], width=400)])
+        if _loaded else mo.md("_Upload an image first_")
     )
     return
 
@@ -276,10 +278,10 @@ def _(
     base64,
     catalogue,
     client,
-    llm_png_bytes,
     generate_step_id,
     get_conv_state,
     get_image_sent,
+    get_loaded_image,
     mo,
     set_conv_state,
     set_image_sent,
@@ -292,9 +294,9 @@ def _(
     def chat_agent(messages, config):
         image_b64 = None
         if not get_image_sent():
-            _png = get_llm_png()
-            if _png:
-                image_b64 = base64.b64encode(_png).decode('utf-8')
+            _loaded = get_loaded_image()
+            if _loaded:
+                image_b64 = base64.b64encode(_loaded['png']).decode('utf-8')
                 set_image_sent(True)
 
         user_message = messages[-1].content
@@ -320,7 +322,6 @@ def _(
         disabled=not upload.value,
     )
     return (chat,)
-
 
 @app.cell
 def ask_agent_step(chat):
@@ -431,7 +432,7 @@ def _(catalogue, get_args_seed, get_pipeline, make_widget, mo, step_id_to_name):
             continue
         _params = {
             k: v for k, v in catalogue[_name]['metadata']['parameters'].items()
-            if k != 'image'
+            if k != 'image_data'
         }
         _defaults = catalogue[_name]['defaults']
         _existing = _seed.get(_step_id, {})
@@ -535,15 +536,15 @@ def run_pipeline_step(run_button):
 @app.cell
 def _(
     catalogue,
-    decode_image,
     encode_png,
-    file_bytes,
+    get_loaded_image,
     get_pipeline_args,
     mo,
     pipeline_widget,
     run_button,
     run_pipeline,
     step_id_to_name,
+    traceback,
     upload,
 ):
     mo.stop(not run_button.value, mo.md(""))
@@ -562,14 +563,42 @@ def _(
         if step_id_to_name(sid) in catalogue
     ]
 
-    _image = decode_image(file_bytes)
-    _output = run_pipeline(_image, _pipeline, catalogue)
+    _image = get_loaded_image()['array']
+    _image_data = {'source': _image, 'current': _image, 'info': {}}
 
-    mo.image_compare(
-        encode_png(_image),
-        encode_png(_output),
-        width=_image.shape[1],
-    )
+    _error = None
+    _result_data = None
+    with mo.capture_stdout() as _stdout_buf, mo.capture_stderr() as _stderr_buf:
+        try:
+            _result_data = run_pipeline(_image_data, _pipeline, catalogue)
+        except Exception:
+            _error = traceback.format_exc()
+
+    _log_text = _stdout_buf.getvalue() + _stderr_buf.getvalue()
+    _logs = mo.accordion({"Pipeline logs": mo.md(f"```\n{_log_text or '(no output)'}\n```")})
+
+    if _error is not None:
+        result_display = mo.vstack([
+            mo.md(f"**Pipeline failed:**\n```\n{_error}\n```"),
+            _logs,
+        ])
+    else:
+        _blocks = [
+            mo.image_compare(
+                encode_png(_result_data['source']),
+                encode_png(_result_data['current']),
+                #width=_image.shape[1],
+                width=400,
+            ),
+        ]
+        if _result_data.get('info'):
+            _blocks.append(mo.accordion({"Info generated by pipeline functions": mo.ui.table(
+                [{'key': k, 'value': v} for k, v in _result_data['info'].items()],
+                selection=None,
+            )}))
+        _blocks.append(_logs)
+        result_display = mo.vstack(_blocks)
+    result_display
     return
 
 @app.cell

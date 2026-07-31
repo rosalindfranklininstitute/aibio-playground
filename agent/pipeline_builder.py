@@ -24,16 +24,16 @@ def _get_msg(msg, name='content') -> str:
 
 def _build_catalogue_json(catalogue: dict) -> str:
     """
-    Convert catalogue tool_specs to JSON string, stripping 'image'
+    Convert catalogue tool_specs to JSON string, stripping 'image_data'
     parameter (not relevant for pipeline construction)
     """
     specs = []
     for entry in catalogue.values():
         spec = copy.deepcopy(entry['tool_spec'])
-        spec['function']['parameters']['properties'].pop('image', None)
+        spec['function']['parameters']['properties'].pop('image_data', None)
         required = spec['function']['parameters']['required']
-        if 'image' in required:
-            required.remove('image')
+        if 'image_data' in required:
+            required.remove('image_data')
         specs.append(spec)
     return json.dumps(specs, indent=2)
 
@@ -244,17 +244,21 @@ def _build_user_content(user_message: str, image_b64: str = None, image_mime: st
 class ConversationState:
     messages: list = field(default_factory=list)
 
-def run_pipeline(image, pipeline: list, catalogue: dict):
+def run_pipeline(image_data: dict, pipeline: list, catalogue: dict) -> dict:
     """
-    Apply sequence of catalogue functions to an image.
-    Pipeline is an ordered list of {"name": str, "args": dict} steps
+    Apply a sequence of catalogue functions to image_data.
+    Each catalogue function takes and returns the full image_data dict
+    (keys: 'source', 'current', 'info'), reading/modifying 'current' and
+    optionally recording extra values under 'info'. 'source' is expected
+    to be left untouched by well-behaved functions.
+    Pipeline is an ordered list of {"name": str, "args": dict} steps.
     """
     sequence = [
         partial(catalogue[step['name']]['function'], **step['args'])
         for step in pipeline
         if step['name'] in catalogue
     ]
-    return reduce(lambda im, fn: fn(im), sequence, image)
+    return reduce(lambda data, fn: fn(data), sequence, image_data)
 
 def step(state: ConversationState, user_message: str, catalogue: dict, client, image_b64: str = None) -> dict:
     """

@@ -13,6 +13,22 @@ from liffile import LifFile
 from czitools.metadata_tools.czi_metadata import CziMetadata
 from czitools.utils.misc import md2dataframe
 
+def _downsample_for_png(arr: np.ndarray, max_dim: int = 2048) -> np.ndarray:
+    """Downsample a (Y,X,C) uint8 array so neither Y nor X exceeds max_dim."""
+    from skimage.transform import resize
+
+    y, x = arr.shape[:2]
+    if max(y, x) <= max_dim:
+        return arr
+
+    scale = max_dim / max(y, x)
+    new_shape = (max(1, int(y * scale)), max(1, int(x * scale)))
+    print(f'Downsampling PNG from {(y, x)} to {new_shape} to keep longest side under {max_dim}px')
+
+    out_shape = new_shape if arr.ndim == 2 else (*new_shape, arr.shape[2])
+    resized = resize(arr, out_shape, anti_aliasing=True, preserve_range=True)
+    return resized.astype(np.uint8)
+
 def _normalise_to_uint8(arr, global_max=None, global_min=None):
     arr = arr.astype(np.float32)
     max_arr = global_max if global_max is not None else arr.max()
@@ -156,7 +172,7 @@ def metadata_to_json(df: pd.DataFrame, **kwargs) -> str:
     """Serialise a metadata DataFrame to a JSON string, e.g. for inclusion in an LLM prompt."""
     return json.dumps(dataframe_to_dict(df, **kwargs), default=str, indent=2)
 
-def load_to_png(
+def load_image(
         path_or_bytes: str | bytes,
         fname: str | None = None,
         dims_override: str = None,
@@ -165,9 +181,17 @@ def load_to_png(
         z_mode: str | None = None,
         channel: int | None = None,
         per_channel_normalise: bool = True,
-        ) -> bytes:
+        max_png_dim: int = 2048,
+        ) -> tuple[bytes, np.ndarray]:
     """
-    Load a microscopy image from path to PNG suitable for LLM use
+    Load a microscopy image, applying the requested t/z/channel selection,
+    and return both:
+      - png_bytes: a normalised uint8 PNG suitable for LLM/display use
+      - original_image_data: the same t/z-selected slice, at native pixel
+        values (dtype unchanged from the source file). If a single channel
+        was explicitly selected, this is a 2D+1 (Y,X,C) array; otherwise it
+        includes ALL channels (not just the first three used for the PNG
+        composite), shape (Y,X,C).
 
     """
     assert z is None or z_mode is None, 'Only one of parameters z, z_max should be set'
@@ -190,7 +214,6 @@ def load_to_png(
     data = np.asarray(img.get_image_data(dims_str))
 
     # canonical Order TCZYX or TCZYXS
-
     if  data.shape[0] > 1:
         print(f'Taking timepoint T={t}')
     data = data[t]
@@ -201,8 +224,6 @@ def load_to_png(
         if data.shape[0] > 1:
             print('WARNING: Taking data across Sample dimension but Channel dimension is non-trivial; only data from first channel will be used')
         data = data[0]
-        # need to rotate (swap X and Y)?
-        # data = np.swapaxes(data, 1, 2)
     else:
         # Reorder as ZYXC
         data = np.moveaxis(data, 0, -1)
@@ -223,19 +244,31 @@ def load_to_png(
     num_channels = data.shape[-1]
     print(f'Reduced to 2D image data of shape (Y,X) = {data.shape[:2]} with {num_channels} channel(s) per pixel')
 
+    # ~~~ Derive the pipeline-facing array: native dtype, reflects the
+    # same t/z/channel selection, but keeps ALL channels in composite mode 
+    if channel is not None:
+        original_image_data = data[:, :, channel]
+    else:
+        original_image_data = data
+        # N.B. for RGB images could consider swapping to BGR for cv2 
+        # (see encode/decode_png in image_tools.py)
+
+    # ~~~ Continue with normalisation for the LLM PNG
+    _png_channel = channel
+    # Encode to PNG bytes
     alpha = None
     if num_channels == 1:
-        channel = 0
-    elif num_channels > 3 and channel is None:
+        _png_channel = 0
+    elif num_channels > 3 and _png_channel is None:
         print('Loading channels 0-2 as RGB; specify channel index to instead select a single channel')
         if num_channels == 4:
             print('Assuming 4th channel as alpha and compositing over white background')
-            alpha = data[:,:,3:4] / np.float64(255.0)
+            alpha = data[:, :, 3:4] / np.float64(255.0)
         data = data[:, :, :3]
-    if channel is not None:
-        # Single channel selection
-        print(f'Selecting channel {channel} normalised to uint8 (0,255)')
-        norm_data = _normalise_to_uint8(data[:,:,channel])
+
+    if _png_channel is not None:
+        print(f'Selecting channel {_png_channel} normalised to uint8 (0,255)')
+        norm_data = _normalise_to_uint8(data[:, :, _png_channel])
     else:
         global_max, global_min = None, None
         if per_channel_normalise:
@@ -243,23 +276,21 @@ def load_to_png(
         else:
             print('Normalising channels collectively to uint8 (0,255)')
             global_max, global_min = np.max(data), np.min(data)
-        r = _normalise_to_uint8(data[:,:,0], global_max, global_min)
-        g = _normalise_to_uint8(data[:,:,1], global_max, global_min)
+        r = _normalise_to_uint8(data[:, :, 0], global_max, global_min)
+        g = _normalise_to_uint8(data[:, :, 1], global_max, global_min)
         if num_channels == 2:
             print('Assuming channels 0-1 as R+G image')
             b = np.ones_like(r)
         else:
-            b = _normalise_to_uint8(data[:,:,2], global_max, global_min)
+            b = _normalise_to_uint8(data[:, :, 2], global_max, global_min)
         norm_data = np.stack([r, g, b], axis=-1)
         if alpha is not None:
             norm_data = (norm_data * alpha + 255 * (1 - alpha)).astype(np.uint8)
-    # Encode to PNG bytes
     #print(norm_data)
+    norm_data = _downsample_for_png(norm_data, max_dim=max_png_dim) # limit max resolution (and so roughly max filesize)
     buf = io.BytesIO()
     #print(f"norm_data dtype: {norm_data.dtype}, min: {norm_data.min()}, max: {norm_data.max()}, shape: {norm_data.shape}")
     iio.imwrite(buf, norm_data, extension='.png')
     png_bytes = buf.getvalue()
 
-    metadata = {} # Todo e.g. and dimensional data from initial image
-
-    return png_bytes
+    return png_bytes, original_image_data
