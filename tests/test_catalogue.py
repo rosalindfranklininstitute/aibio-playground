@@ -1,6 +1,7 @@
 import os
-import importlib.util
+import importlib.util, importlib.metadata
 import inspect
+import numpy as np
 
 import pytest
 
@@ -21,7 +22,7 @@ def check_metadata(module_path, module_metadata):
     return all_params_list
 
 
-def check_function(module_path, module_fn, param_list):
+def check_function_signature(module_path, module_fn, param_list):
     assert callable(module_fn), f'{module_path}: function is not callable'
     sig = inspect.signature(module_fn)
     params = list(sig.parameters.values())
@@ -39,6 +40,33 @@ def check_function(module_path, module_fn, param_list):
             f'{module_path}: parameter "{p.name}" has no default value'
         )
 
+def check_dependencies(module_path, fn_dependencies):
+    for dep in fn_dependencies:
+        try:
+            importlib.metadata.distribution(dep)
+        except importlib.metadata.PackageNotFoundError:
+            pytest.fail(
+                f'{module_path}: dependency "{dep}" listed in METADATA is not installed. '
+                f'Add it to marimo/requirements.txt'
+            )
+
+def check_function_call(module_fn, image_data):
+    original_source = image_data["source"].copy()
+    fn_name = module_fn.__name__
+
+    try:
+        result = module_fn(image_data)
+    except (ModuleNotFoundError, ImportError) as e:
+        pytest.fail(
+            f'{fn_name}: missing dependency ({e}). '
+            f'Ensure is listed in METADATA["dependencies"] and added to marimo/requirements.txt'
+        )
+
+    assert isinstance(result, dict), f'{fn_name} must return a dictionary'
+    required = {"source", "current", "info"}
+    assert required <= result.keys(), f'{fn_name} must have keys "source", "current" and "info"'
+    assert np.array_equal(result["source"], original_source), f'{fn_name} should not modify image_data["source"]'
+    #assert isinstance(result["current"], np.ndarray), f'{fn_name} must return numpy data array in "current"'
 
 def _catalogue_files():
     return sorted(
@@ -66,4 +94,11 @@ def test_catalogue_file(fname):
 
     assert hasattr(module, metadata['name']), f'{module_path} has no function "{metadata["name"]}"'
     fn = getattr(module, metadata['name'])
-    check_function(module_path, fn, all_params_list)
+    check_function_signature(module_path, fn, all_params_list)
+
+    check_dependencies(module_path, metadata['dependencies'])
+
+    # Construct small test input
+    source = np.random.randint(0, 256, size=(100, 100), dtype=np.uint8)
+    image_data = {"source": source.copy(), "current": source.copy(), "info": {}}
+    check_function_call(fn, image_data)

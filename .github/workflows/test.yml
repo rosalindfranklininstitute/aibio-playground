@@ -1,21 +1,15 @@
 name: Tests
-
 on:
   push:
   pull_request:
-
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install -r requirements-test.txt
-
+      - name: Build app image
+        run: docker build -t marimo-app -f marimo/Dockerfile .
+      - name: Build test image
+        run: docker build -t catalogue-test -f marimo/Dockerfile.test marimo
       - name: Run tests
-        run: pytest
+        run: docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace catalogue-test pytest tests
