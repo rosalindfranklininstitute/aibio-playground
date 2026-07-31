@@ -11,9 +11,11 @@ METADATA = {
         "Image must be either binary or greyscale, not colour."
     ),
     "parameters": {
-        "image": {
-            "type": "string",
-            "description": "Numpy array with image data. Must be 8bit depth and greyscale to work well."
+        "image_data": {
+            "type": "dict",
+            "description": "Dictionary containing original image ('source', Numpy array), "
+            "latest image to be processed ('current', Numpy array), and any data from current/prior "
+            "processing steps ('info', dict)"
         },
         "kernel_size": {
             "type": "number",
@@ -21,13 +23,14 @@ METADATA = {
             "Must be positive. Defaults to 5."
         },
     },
-    "required": ["image"],
+    "required": ["image_data"],
     "tags": ["morphological", "transform", "top-hat", "white top-hat", "binary", "feature extraction", "foreground"],
-    "requires": ["opencv-python-headless","numpy"],
+    "dependencies": ["opencv-python-headless","numpy"],
+    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 
-def top_hat(image, kernel_size = 5):
+def top_hat(image_data, kernel_size = 5):
         # The number of channels can be arbitrary. The depth should be one of CV_8U, CV_16U, CV_16S, CV_32F or CV_64F
         # So technically this can be done on multichannel images and 32/64 depth
         # But it's not scientifically useful to do so... 
@@ -39,6 +42,8 @@ def top_hat(image, kernel_size = 5):
 
     kernel = np.ones((kernel_size,kernel_size),np.uint8)
 
+    image = image_data['current']
+
     if image.dtype == np.uint8:
         tophat = cv2.morphologyEx(image, cv2.MORPH_TOPHAT, kernel)
     elif image.dtype == np.uint16:
@@ -46,4 +51,6 @@ def top_hat(image, kernel_size = 5):
         tophat = cv2.morphologyEx(img, cv2.MORPH_TOPHAT, kernel)
     else:
         raise TypeError("Image must be 8 or 16bit depth") 
-    return tophat
+    
+    image_data['current'] = tophat
+    return image_data

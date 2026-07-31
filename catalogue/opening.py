@@ -11,9 +11,11 @@ METADATA = {
         "Currently implemented with a square kernel only. Kernel size is usually odd, but this is not required. "
     ),
     "parameters": {
-        "image": {
-            "type": "string",
-            "description": "Numpy array with image data. Must be grayscale."
+        "image_data": {
+            "type": "dict",
+            "description": "Dictionary containing original image ('source', Numpy array), "
+            "latest image to be processed ('current', Numpy array), and any data from current/prior "
+            "processing steps ('info', dict)"
         },
         "kernel_size": {
             "type": "number",
@@ -21,18 +23,21 @@ METADATA = {
             "Must be positive. Defaults to 5."
         },
     },
-    "required": ["image"],
+    "required": ["image_data"],
     "tags": ["morphological", "transform", "opening", "binary", "feature extraction", "background", "despeckle"],
-    "requires": ["opencv-python-headless","numpy"],
+    "dependencies": ["opencv-python-headless","numpy"],
+    "dependencies": ["opencv-python-headless","numpy"],
 }
 
-def opening(image, kernel_size = 5):
+def opening(image_data, kernel_size = 5):
     import cv2
     import numpy as np
 
     assert kernel_size > 0, "Kernel size must be positive"
-
     kernel = np.ones((kernel_size,kernel_size),np.uint8)
 
+    image = image_data['current']
+
     opening = cv2.morphologyEx(image,cv2.MORPH_OPEN,kernel)
-    return opening
+    image_data['current'] = opening
+    return image_data

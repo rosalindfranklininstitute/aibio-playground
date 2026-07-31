@@ -1,0 +1,6 @@
+ARG BASE_IMAGE=marimo-app
+FROM ${BASE_IMAGE} AS base
+
+USER root
+RUN pip install --no-cache-dir pytest
+USER appuser

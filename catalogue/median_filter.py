@@ -10,9 +10,11 @@ METADATA = {
         "For images with multiple channels, the blur is computed for each channel separately."
     ),
     "parameters": {
-        "image": {
-            "type": "string",
-            "description": "Numpy array with image data"
+        "image_data": {
+            "type": "dict",
+            "description": "Dictionary containing original image ('source', Numpy array), "
+            "latest image to be processed ('current', Numpy array), and any data from current/prior "
+            "processing steps ('info', dict)"
         },
         "kernel_size": {
             "type": "number",
@@ -20,17 +22,21 @@ METADATA = {
             "Must be positive and odd. Defaults to 5."
         },
     },
-    "required": ["image"],
+    "required": ["image_data"],
     "tags": ["smoothing", "denoise", "blur", "median", "filter", "pre-processing", "binary"],
-    "requires": ["opencv-python-headless"],
+    "dependencies": ["opencv-python-headless"],
+    "dependencies": ["opencv-python-headless"],
 }
 
 
-def median_filter(image, kernel_size = 5):
+def median_filter(image_data, kernel_size = 5):
     import cv2
 
     assert kernel_size % 2 != 0, "Kernel size must be odd"
     assert kernel_size > 0, "Kernel size must be positive"
 
+    image = image_data['current']
+
     blurred_image = cv2.medianBlur(image,kernel_size)
-    return blurred_image
+    image_data['current'] = blurred_image
+    return image_data
