@@ -22,7 +22,7 @@ METADATA = {
             "Must be positive. Defaults to 5."
         },
     },
-    "required": ["imag_data"],
+    "required": ["image_data"],
     "tags": ["morphological", "transform", "black hat", "top-hat", "binary", "feature extraction", "foreground"],
     "dependencies": ["opencv-python-headless","numpy"],
     "dependencies": ["opencv-python-headless","numpy"],
