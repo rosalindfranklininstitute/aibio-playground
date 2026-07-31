@@ -24,7 +24,8 @@ METADATA = {
     },
     "required": ["imag_data"],
     "tags": ["morphological", "transform", "black hat", "top-hat", "binary", "feature extraction", "foreground"],
-    "requires": ["opencv-python-headless","numpy"],
+    "dependencies": ["opencv-python-headless","numpy"],
+    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 

@@ -22,7 +22,8 @@ METADATA = {
     },
     "required": ["image_data"],
     "tags": ["thresholding", "transform", "feature extraction", "multi-class", "intensity", "foreground"],
-    "requires": ["scikit-image","numpy","opencv-python-headless"],
+    "dependencies": ["scikit-image","numpy","opencv-python-headless"],
+    "dependencies": ["scikit-image","numpy","opencv-python-headless"],
 }
 
 def multi_otsu_threshold(image_data, classes = 3):

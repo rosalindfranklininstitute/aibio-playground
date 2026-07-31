@@ -25,7 +25,8 @@ METADATA = {
     },
     "required": ["image_data"],
     "tags": ["morphological", "transform", "closing", "binary", "feature extraction", "foreground", "despeckle"],
-    "requires": ["opencv-python-headless","numpy"],
+    "dependencies": ["opencv-python-headless","numpy"],
+    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 def closing(image_data, kernel_size = 5):

@@ -27,7 +27,8 @@ METADATA = {
     },
     "required": ["image_data"],
     "tags": ["thresholding", "transform", "feature extraction", "binary", "intensity", "foreground"],
-    "requires": ["opencv-python-headless","numpy"],
+    "dependencies": ["opencv-python-headless","numpy"],
+    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 

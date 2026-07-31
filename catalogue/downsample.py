@@ -22,7 +22,8 @@ METADATA = {
     },
     "required": ["image_data"],
     "tags": ["downsample", "downscale", "resize", "rescale", "image pyramid"],
-    "requires": ["opencv-python-headless"],
+    "dependencies": ["opencv-python-headless"],
+    "dependencies": ["opencv-python-headless"],
 }
 
 
