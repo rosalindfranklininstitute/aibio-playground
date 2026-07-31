@@ -17,11 +17,10 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["thresholding", "transform", "feature extraction", "binary", "intensity", "foreground"],
     "dependencies": ["opencv-python-headless","numpy"],
-    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 def triangle_threshold(image_data):
-    #     THRESH_TRIANG:E mode:
+    #     THRESH_TRIANGLE mode:
     #     'src_type == CV_8UC1'
     #     only accepts single-channel images
     import cv2

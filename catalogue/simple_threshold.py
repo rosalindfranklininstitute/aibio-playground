@@ -28,7 +28,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["thresholding", "transform", "feature extraction", "binary", "intensity", "foreground"],
     "dependencies": ["opencv-python-headless","numpy"],
-    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 
@@ -49,7 +48,7 @@ def simple_threshold(image_data, threshold = None, invert = False):
         maxval = 255
     
     if invert == False:
-        simple_threshold = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY)
+        _, simple_threshold = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY)
     elif invert == True:
         _, simple_threshold = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY_INV)
     

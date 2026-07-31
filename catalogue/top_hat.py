@@ -26,7 +26,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["morphological", "transform", "top-hat", "white top-hat", "binary", "feature extraction", "foreground"],
     "dependencies": ["opencv-python-headless","numpy"],
-    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 

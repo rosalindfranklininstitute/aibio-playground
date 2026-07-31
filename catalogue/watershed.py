@@ -33,7 +33,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["segmentation", "distance transform", "watershed", "feature extraction", "binary", "labels", "foreground"],
     "dependencies": ["scikit-image","scipy","numpy"],
-    "dependencies": ["scikit-image","scipy","numpy"],
 }
 
 
