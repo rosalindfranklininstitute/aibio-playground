@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from functools import partial, reduce
 from jinja2 import Template
 from openai import OpenAI
+from typing import Callable, Optional
 
 OLLAMA_BASE_URL = "http://ollama:11434/v1"
 MODEL = "gemma4:26b"
@@ -86,6 +87,7 @@ def triage(messages: list, catalogue: dict, client) -> dict:
         tools=[PROPOSE_PIPELINE_TOOL],
         tool_choice="auto",
         stream=False,
+        max_tokens=16000,
     )
 
     if not response.choices:
@@ -168,6 +170,7 @@ def select_pipeline(messages: list, catalogue: dict, client) -> dict:
         model=MODEL,
         messages=history,
         stream=False,
+        max_tokens=16000,
     )
 
     if not response.choices:
@@ -175,7 +178,12 @@ def select_pipeline(messages: list, catalogue: dict, client) -> dict:
 
     message = response.choices[0].message
     reasoning = getattr(message, 'reasoning', None)
-    raw = message.content.strip()
+    raw = (message.content or '').strip()
+
+    finish_reason = response.choices[0].finish_reason
+    print(f'[select_pipeline] finish_reason={finish_reason!r}, content={raw!r}')
+    if reasoning:
+        print(f'[select_pipeline] reasoning:\n{reasoning}')
 
     pipeline, errors = _json_parse_validate(raw, catalogue)
 
@@ -220,6 +228,7 @@ def explain_pipeline(pipeline: list, catalogue: dict, client, messages: list) ->
         model=MODEL,
         messages=history,
         stream=False,
+        max_tokens=16000,
     )
     if not response.choices:
         raise ValueError("Model returned no choices in explanation call")
@@ -244,7 +253,7 @@ def _build_user_content(user_message: str, image_b64: str = None, image_mime: st
 class ConversationState:
     messages: list = field(default_factory=list)
 
-def run_pipeline(image_data: dict, pipeline: list, catalogue: dict) -> dict:
+def run_pipeline(image_data: dict, pipeline: list, catalogue: dict, on_step: Optional[Callable[[str, dict], None]]) -> dict:
     """
     Apply a sequence of catalogue functions to image_data.
     Each catalogue function takes and returns the full image_data dict
@@ -252,13 +261,34 @@ def run_pipeline(image_data: dict, pipeline: list, catalogue: dict) -> dict:
     optionally recording extra values under 'info'. 'source' is expected
     to be left untouched by well-behaved functions.
     Pipeline is an ordered list of {"name": str, "args": dict} steps.
+
+    on_step, if given, is called once before the first step as
+    on_step("source", image_data), then again after each step as
+    on_step(step_name, image_data)
     """
+    #sequence = [
+    #    partial(catalogue[step['name']]['function'], **step['args'])
+    #    for step in pipeline
+    #    if step['name'] in catalogue
+    #]
     sequence = [
-        partial(catalogue[step['name']]['function'], **step['args'])
+        (step['name'], partial(catalogue[step['name']]['function'], **step['args']))
         for step in pipeline
         if step['name'] in catalogue
     ]
-    return reduce(lambda data, fn: fn(data), sequence, image_data)
+
+    if on_step is not None:
+        on_step('source', image_data)
+
+    def _apply(data, item):
+        name, fn = item
+        result = fn(data)
+        if on_step is not None:
+            on_step(name, result)
+        return result
+
+    return reduce(_apply, sequence, image_data)
+    #return reduce(lambda data, fn: fn(data), sequence, image_data)
 
 def step(state: ConversationState, user_message: str, catalogue: dict, client, image_b64: str = None) -> dict:
     """
