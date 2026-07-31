@@ -31,7 +31,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["morphological", "transform", "erosion", "binary", "feature extraction", "foreground"],
     "dependencies": ["opencv-python-headless","numpy"],
-    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 def erosion(image_data, kernel_size = 5, iterations = 1):

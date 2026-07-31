@@ -26,7 +26,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["morphological", "transform", "opening", "binary", "feature extraction", "background", "despeckle"],
     "dependencies": ["opencv-python-headless","numpy"],
-    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 def opening(image_data, kernel_size = 5):

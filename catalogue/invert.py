@@ -18,7 +18,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["invert", "intensity", "foreground", "background"],
     "dependencies": ["opencv-python-headless"],
-    "dependencies": ["opencv-python-headless"],
 }
 
 

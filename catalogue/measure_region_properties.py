@@ -25,7 +25,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["measure", "labels", "feature extraction", "shape", "intensity", "size"],
     "dependencies": ["scikit-image","scipy","numpy"],
-    "dependencies": ["scikit-image","scipy","numpy"],
 }
 
 

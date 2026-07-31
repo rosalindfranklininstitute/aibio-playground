@@ -24,7 +24,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["downsample", "downscale", "resize", "rescale", "interpolation"],
     "dependencies": ["scikit-image"],
-    "dependencies": ["scikit-image"],
 }
 
 

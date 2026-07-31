@@ -24,7 +24,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["morphological", "transform", "morphological gradient", "binary", "feature extraction", "edges", "edge detection"],
     "dependencies": ["opencv-python-headless","numpy"],
-    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 def morphological_gradient(image_data, kernel_size = 5):

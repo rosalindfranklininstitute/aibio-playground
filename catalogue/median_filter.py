@@ -25,7 +25,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["smoothing", "denoise", "blur", "median", "filter", "pre-processing", "binary"],
     "dependencies": ["opencv-python-headless"],
-    "dependencies": ["opencv-python-headless"],
 }
 
 

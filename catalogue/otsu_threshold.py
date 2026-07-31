@@ -17,7 +17,6 @@ METADATA = {
     "required": ["image_data"],
     "tags": ["thresholding", "transform", "feature extraction", "binary", "intensity", "foreground"],
     "dependencies": ["opencv-python-headless","numpy"],
-    "dependencies": ["opencv-python-headless","numpy"],
 }
 
 def otsu_threshold(image_data):
