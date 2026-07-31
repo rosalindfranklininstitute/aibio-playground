@@ -45,7 +45,7 @@ def black_hat(image_data, kernel_size = 5):
     image = image_data['current']
 
     if image.dtype == np.uint8:
-        blackhat = cv2.morphologyEx(image, cv2.MORPH_BLACKPHAT, kernel)
+        blackhat = cv2.morphologyEx(image, cv2.MORPH_BLACKHAT, kernel)
     elif image.dtype == np.uint16:
         img = (image // 256).astype(np.uint8)
         blackhat = cv2.morphologyEx(img, cv2.MORPH_BLACKHAT, kernel)

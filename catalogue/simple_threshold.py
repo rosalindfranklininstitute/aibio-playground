@@ -51,9 +51,7 @@ def simple_threshold(image_data, threshold = None, invert = False):
     if invert == False:
         simple_threshold = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY)
     elif invert == True:
-        _, simple_thresh = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY_INV)
-
-    print(simple_thresh)
+        _, simple_threshold = cv2.threshold(image,thresh=thresh,maxval=maxval, type=cv2.THRESH_BINARY_INV)
     
     image_data['info']['threshold_value'] = thresh
     image_data['current'] = simple_threshold

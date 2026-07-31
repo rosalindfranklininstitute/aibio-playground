@@ -56,7 +56,7 @@ def multi_otsu_threshold(image_data, classes = 3):
     
     thresholds = ski.filters.threshold_multiotsu(image, classes = classes)
 
-    regions = np.digitze(image, bins = thresholds)
+    regions = np.digitize(image, bins = thresholds)
 
     # convert back from int64 (digitize output) to uint8 (useful in pipeline)
     regions = regions / np.max(regions) 
