@@ -99,6 +99,11 @@ def test_catalogue_file(fname):
     check_dependencies(module_path, metadata['dependencies'])
 
     # Construct small test input
-    source = np.random.randint(0, 256, size=(100, 100), dtype=np.uint8)
+
+    # Construct small test input
+    if metadata['name'] == 'watershed':
+        source = np.random.randint(0, 2, size=(100, 100), dtype=np.uint8) * 255
+    else:
+        source = np.random.randint(0, 256, size=(100, 100), dtype=np.uint8)
     image_data = {"source": source.copy(), "current": source.copy(), "info": {}}
     check_function_call(fn, image_data)
