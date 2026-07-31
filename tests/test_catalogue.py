@@ -5,7 +5,7 @@ import inspect
 import pytest
 
 CATALOGUE_DIR = os.path.join(os.path.dirname(__file__), '..', 'catalogue')
-REQUIRED_METADATA_KEYS = ['name', 'description', 'parameters']
+REQUIRED_METADATA_KEYS = ['name', 'description', 'parameters', 'required', 'tags', 'dependencies']
 REQUIRED_PARAMETER_KEYS = ['type', 'description']
 
 
@@ -25,9 +25,9 @@ def check_function(module_path, module_fn, param_list):
     assert callable(module_fn), f'{module_path}: function is not callable'
     sig = inspect.signature(module_fn)
     params = list(sig.parameters.values())
-    assert params, f'{module_path}: function takes no arguments, expected "image" as first argument'
-    assert params[0].name == 'image', (
-        f'{module_path}: first argument must be "image", got "{params[0].name}"'
+    assert params, f'{module_path}: function takes no arguments, expected "image_data" as first argument'
+    assert params[0].name == 'image_data', (
+        f'{module_path}: first argument must be "image_data", got "{params[0].name}"'
     )
     sig_names = {p.name for p in params}
     assert sig_names == set(param_list), (
