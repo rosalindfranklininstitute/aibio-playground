@@ -114,11 +114,14 @@ def _strip_code_fences(raw: str) -> str:
     Strip markdown code fences from a string if present.
     Handles ```json ... ``` and ``` ... ``` variants.
     """
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
+    raw = raw.strip()
+    if "```" in raw:
+        parts = raw.split("```")
+        if len(parts) >= 2:
+            raw = parts[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+            raw = raw.strip()
     return raw
 
 def _json_parse_validate(raw: str, catalogue: dict) -> tuple[list, list]:
