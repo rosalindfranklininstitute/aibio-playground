@@ -1,5 +1,4 @@
 import marimo
-
 __generated_with = "0.23.1"
 app = marimo.App(width="medium")
 
@@ -12,7 +11,7 @@ def _():
     sys.path.insert(0, '/app')
     from agent.catalogue_loader import load_catalogue
     from agent.pipeline_builder import step, ConversationState, get_client, run_pipeline, generate_step_id, step_id_to_name
-    from agent.image_tools import encode_png
+    from agent.image_tools import encode_png, resize_for_display
     from agent.image_loader import inspect_image, load_image, SUPPORTED_EXT, downsample_for_png
 
     return (
@@ -32,6 +31,7 @@ def _():
         generate_step_id,
         step_id_to_name,
         encode_png,
+        resize_for_display,
         inspect_image,
         load_image,
         SUPPORTED_EXT,
@@ -528,7 +528,7 @@ def _(mo, pipeline_widget):
 
 @app.cell
 def _(mo):
-    run_button = mo.ui.run_button(label="Run pipeline")
+    run_button = mo.ui.run_button(label="Run pipeline", kind='warn')
     return (run_button,)
 
 @app.cell
@@ -538,6 +538,7 @@ def run_pipeline_step(run_button):
 
 @app.cell
 def _(
+    base64,
     catalogue,
     encode_png,
     downsample_for_png,
@@ -545,6 +546,7 @@ def _(
     get_pipeline_args,
     mo,
     pipeline_widget,
+    resize_for_display,
     run_button,
     run_pipeline,
     step_id_to_name,
@@ -595,10 +597,9 @@ def _(
     else:
         _blocks = [
             mo.image_compare(
-                encode_png(_result_data['source']),
-                encode_png(_result_data['current']),
-                width=400,
-                height=400,
+                encode_png(resize_for_display(_result_data['source'])),
+                encode_png(resize_for_display(_result_data['current'])),
+               # width=400,
             ),
         ]
         if _result_data.get('info'):
@@ -607,14 +608,16 @@ def _(
                 selection=None,
             )}))
         _blocks.append(_logs)
-        result_display = mo.vstack(_blocks, align="center")
+        #result_display = mo.vstack(_blocks, align="center")
+        result_display = mo.vstack(_blocks)
     history = _history
-    results_display
+    print(_result_data['source'].shape, _result_data['current'].shape)
+    result_display
     return (history,)
 
 @app.cell
 def _(WidgetDAG, history, mo):
-    _NODES_PER_ROW = 6
+    _NODES_PER_ROW = 5
 
     def _caption(name):
         return "Source" if name == "source" else f"After {name}"
