@@ -13,7 +13,7 @@ from liffile import LifFile
 from czitools.metadata_tools.czi_metadata import CziMetadata
 from czitools.utils.misc import md2dataframe
 
-def _downsample_for_png(arr: np.ndarray, max_dim: int = 2048) -> np.ndarray:
+def downsample_for_png(arr: np.ndarray, max_dim: int = 2048) -> np.ndarray:
     """Downsample a (Y,X,C) uint8 array so neither Y nor X exceeds max_dim."""
     from skimage.transform import resize
 
@@ -287,7 +287,7 @@ def load_image(
         if alpha is not None:
             norm_data = (norm_data * alpha + 255 * (1 - alpha)).astype(np.uint8)
     #print(norm_data)
-    norm_data = _downsample_for_png(norm_data, max_dim=max_png_dim) # limit max resolution (and so roughly max filesize)
+    norm_data = downsample_for_png(norm_data, max_dim=max_png_dim) # limit max resolution (and so roughly max filesize)
     buf = io.BytesIO()
     #print(f"norm_data dtype: {norm_data.dtype}, min: {norm_data.min()}, max: {norm_data.max()}, shape: {norm_data.shape}")
     iio.imwrite(buf, norm_data, extension='.png')
