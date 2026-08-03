@@ -1,7 +1,6 @@
 import cv2, json, base64
 import numpy as np
 
-
 def decode_image(raw_bytes: bytes) -> np.ndarray:
     """Decode raw uploaded bytes into an RGB image array (currently unused by project)."""
     raw = np.frombuffer(raw_bytes, np.uint8)
@@ -54,3 +53,19 @@ def build_image_message(text, file_upload, metadata=None):
             }
         ]
     }
+
+def resize_for_display(arr: np.ndarray, min_dim: int = 400, max_dim: int = 1000) -> np.ndarray:
+    """Resize a (Y,X,C) uint8 array so its longest side sits within
+    [min_dim, max_dim], scaling up if smaller than min_dim, down if larger
+    than max_dim, and leaving it untouched if already within range."""
+    from skimage.transform import resize
+    y, x = arr.shape[:2]
+    longest = max(y, x)
+    if min_dim <= longest <= max_dim:
+        return arr
+    target = min_dim if longest < min_dim else max_dim
+    scale = target / longest
+    new_shape = (max(1, int(y * scale)), max(1, int(x * scale)))
+    out_shape = new_shape if arr.ndim == 2 else (*new_shape, arr.shape[2])
+    resized = resize(arr, out_shape, anti_aliasing=True, preserve_range=True)
+    return resized.astype(np.uint8)
