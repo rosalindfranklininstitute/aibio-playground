@@ -35,13 +35,18 @@ METADATA = {
 
 def label_regions(image_data, connectivity = 2, background_value = None):
     import skimage as ski
+    import numpy as np
     import warnings
 
     warnings.warn(message=("Heads up: this function outputs labels. "
     "This should be one of the final steps before measurement."))
     
     image = image_data['current']
-    
+
+    values = np.unique(image)
+    assert len(values) <= 20, "Image has more than 20 unique values to assign labels, "
+    "have you used a segmentation technique such as thresholding yet?"
+
     if background_value is not None:
         labels = ski.measure.label(image, background = background_value, connectivity = connectivity)
     else:

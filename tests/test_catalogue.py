@@ -103,6 +103,10 @@ def test_catalogue_file(fname):
     # Construct small test input
     if metadata['name'] == 'watershed':
         source = np.random.randint(0, 2, size=(100, 100), dtype=np.uint8) * 255
+    elif metadata['name'] == 'label_regions':
+        source = np.random.randint(0, 4, size=(100, 100), dtype=np.uint8) * 255
+    elif metadata['name'] == 'label_classes':
+        source = np.random.randint(0, 4, size=(100, 100), dtype=np.uint8) * 255
     else:
         source = np.random.randint(0, 256, size=(100, 100), dtype=np.uint8)
     image_data = {"source": source.copy(), "current": source.copy(), "info": {}}
