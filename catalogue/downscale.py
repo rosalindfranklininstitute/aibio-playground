@@ -29,10 +29,21 @@ METADATA = {
 
 def downscale(image_data, factor = 2):
     import skimage as ski
+    import numpy as np
+    import warnings
 
     image = image_data['current']
     
     assert image.ndim <= 3, "Must pass single or multi-channel image. Dimensions > 3 are not supported"
+
+    # If input is uint8 or uint16, returns an oob float. So convert to float for downscale, 
+    # then convert back to original image type for downstream analysis
+    type = image.dtype
+
+    if np.issubdtype(type, np.integer) == True:
+        image = ski.util.img_as_float(image)
+    else:
+        raise TypeError("Oops: Unsupported image type. Image should be uint8 or uint16.")
 
     w, h, *c = image.shape
     
@@ -47,6 +58,13 @@ def downscale(image_data, factor = 2):
             downscale = ski.transform.resize_local_mean(image,output_shape = newscale, preserve_range = True, channel_axis = 2)
         elif image.ndim == 2:
             downscale = ski.transform.resize_local_mean(image, output_shape = newscale, preserve_range = True)
+
+    if type == np.uint8:
+        downscale = ski.util.img_as_ubyte(downscale)
+    elif type == np.uint16:
+        downscale = ski.util.img_as_uint(downscale)
+    else:
+        downscale = ski.util.img_as_uint(downscale)
     
     image_data['current'] = downscale 
     
