@@ -41,6 +41,7 @@ METADATA = {
 def bilateral_filter(image_data, distance = None, sigma_colour = 50, sigma_space = 5):
     # Bilateral filtering is only implemented for CV_8U and CV_32F images
     # Currently only implemented conversion from CV_16U to CV_8U, FP not supported. 
+    import warnings
     import cv2
     import numpy as np
     
@@ -56,12 +57,11 @@ def bilateral_filter(image_data, distance = None, sigma_colour = 50, sigma_space
     if image.dtype == np.uint8:
         blurred_image = cv2.bilateralFilter(image, dist, sigma_colour, sigma_space)
     elif image.dtype == np.uint16:
-        
+        warnings.warn("Bilateral filter requires 8 bit depth. Converting image from 16 to 8 bit.")
         img = (image // 256).astype(np.uint8)
         blurred_image = cv2.bilateralFilter(img, dist, sigma_colour, sigma_space)
     else:
         raise TypeError("Image must be 8 or 16bit depth") 
 
-    blurred_image = cv2.bilateralFilter(image, dist, sigma_colour, sigma_space)
     image_data['current'] = blurred_image
     return image_data

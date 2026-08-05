@@ -164,6 +164,65 @@ def inspect_image(path_or_bytes: str | bytes, fname: str | None = None) -> dict:
         'metadata': inspect_metadata(path, fname, img=img),  # reuses img, no second load
     }
 
+def prep_pipeline_image(image: np.ndarray):
+    """
+    Convert original image data into uint8 or uint16 format to pass to analysis pipeline:
+        - Takes into account the range and precision of the input array. 
+        - Normalises floating point arrays with over 20% negative values to avoid clipping during conversion.
+    """
+    from skimage.util import img_as_ubyte, img_as_uint
+    from skimage.exposure import rescale_intensity
+
+    type = image.dtype
+    
+    #find out of floating point or integer
+    if np.issubdtype(type, np.integer) == True:
+        if np.issubdtype(type,np.uint8) == True:
+            # do nothing, already uint8
+            pass
+        elif np.issubdtype(type,np.uint16) == True:
+            if len(np.unique(image)) <= 256 and np.ptp(image) <= 256:
+                # convert to uint8 if the data range and precision are both within uint8 range (sparse uint16)
+                # might cause contrast scaling that is unideal, but unlikely
+                image = img_as_ubyte(image)
+            else:
+                # do nothing, already full uint16
+                pass
+        else:
+            # convert other int data types (eg signed int) to uint8/16 based on data precision/range
+            if len(np.unique(image)) <= 256 and np.ptp(image) <= 256:
+                image = img_as_ubyte(image)
+            else:
+                image = img_as_uint(image)
+    
+    elif np.issubdtype(image.dtype,np.bool) == True:
+        # convert boolean masks to uint with [0,255] range
+        image = img_as_ubyte(image)
+
+    elif np.issubdtype(image.dtype, np.floating) == True:
+        if len(np.unique(image)) <= 256 and np.ptp(image) <= 1:
+            # if we accidentally get a FP representation of data that is actually uint8 precision
+            # doesn't account for negative pixels or clipping
+            image = img_as_ubyte(image)
+        else:
+            if (image<0).sum()/image.size >= 0.2:
+                # suggests that the FP image has significant pixels with negative values
+                # which will be clipped by default during conversion
+                # therefore we normalise to between 0 and 1 prior to conversion to uint16
+                image = rescale_intensity(image, out_range=(0, 1))
+                image = img_as_uint(image)
+                
+            else:
+                image = img_as_uint(image)
+                
+    else:
+        try:
+            image = img_as_uint(image)
+        except:
+            raise TypeError("Can't convert input image data type.")
+
+    return image
+
 def dataframe_to_dict(df: pd.DataFrame, paramcol: str = 'Parameter', keycol: str = 'Value') -> dict:
     """Flatten a Parameter/Value metadata DataFrame into a plain dict."""
     return dict(zip(df[paramcol], df[keycol]))
@@ -253,6 +312,9 @@ def load_image(
         # N.B. for RGB images could consider swapping to BGR for cv2 
         # (see encode/decode_png in image_tools.py)
 
+    # ~~~ Convert image datatype for pipeline
+    prepared_image_data = prep_pipeline_image(original_image_data)
+
     # ~~~ Continue with normalisation for the LLM PNG
     _png_channel = channel
     # Encode to PNG bytes
@@ -293,4 +355,4 @@ def load_image(
     iio.imwrite(buf, norm_data, extension='.png')
     png_bytes = buf.getvalue()
 
-    return png_bytes, original_image_data
+    return png_bytes, prepared_image_data
