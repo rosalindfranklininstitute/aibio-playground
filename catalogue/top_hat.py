@@ -43,13 +43,7 @@ def top_hat(image_data, kernel_size = 5):
 
     image = image_data['current']
 
-    if image.dtype == np.uint8:
-        tophat = cv2.morphologyEx(image, cv2.MORPH_TOPHAT, kernel)
-    elif image.dtype == np.uint16:
-        img = (image // 256).astype(np.uint8)
-        tophat = cv2.morphologyEx(img, cv2.MORPH_TOPHAT, kernel)
-    else:
-        raise TypeError("Image must be 8 or 16bit depth") 
+    tophat = cv2.morphologyEx(image, cv2.MORPH_TOPHAT, kernel)
     
     image_data['current'] = tophat
     return image_data

@@ -46,7 +46,7 @@ def multi_otsu_threshold(image_data, classes = 3):
         warnings.warn("Passed multichannel image, converting to greyscale")
         image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     if image.dtype == np.uint16:
-        warnings.warn("Converting 16bit to 8bit image")
+        warnings.warn("Multi-otsu with 16 bit images is very slow. Converting image from 16 bit to 8 bit depth.")
         image = (image // 256).astype(np.uint8)
     elif image.dtype == np.uint8:
         pass

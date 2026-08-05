@@ -34,7 +34,7 @@ def triangle_threshold(image_data):
         warnings.warn("Passed multichannel image, converting to greyscale")
         image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     if image.dtype == np.uint16:
-        warnings.warn("Passed 16bit image, converting to 8bit for processing")
+        warnings.warn("Triangle threshold requires 8 bit depth. Converting image from 16 bit to 8 bit depth.")
         image = (image // 256).astype(np.uint8)
         maxval = 255
     elif image.dtype == np.uint8:
