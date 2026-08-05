@@ -51,6 +51,8 @@ This dictionary contains:
 
 The modified dictionary should be the function's single return value.
 
+Catalogue functions should expect that `image_data['current']` is a NumPy array of type `np.uint8` or `np.uint16`. If a function requires a different data type, this should be handled within the function and the output should be converted back to `np.uint8/np.uint16`, matching the type of the input image where possible. Catalogue functions intended to produce labels and/or return measurements based on labels can return `np.int32` or `np.int64` types if needed, though this may limit downstream steps.
+
 To submit a catalogue function, fork the repository and create a pull request for review.
 
 ## Funding Statement
