@@ -7,6 +7,7 @@ app = marimo.App(width="medium")
 def _():
     import marimo as mo
     import base64, html, inspect, sys, traceback
+    import pandas as pd
     from wigglystuff import SortableList, CellTour, WidgetDAG
     sys.path.insert(0, '/app')
     from agent.catalogue_loader import load_catalogue
@@ -20,6 +21,7 @@ def _():
         html,
         inspect,
         traceback,
+        pd,
         SortableList,
         CellTour,
         WidgetDAG,
@@ -65,8 +67,13 @@ def _(CellTour, mo):
                     "description": "Press run to apply the pipeline to your image data. The result appears in a box below."
                 },
                 {
+                    "cell_name": "data_explorer",
+                    "title": "5. Explore data outputs",
+                    "description": "If the pipeline contains a measurement step, the outputs will be shown below. Explore the data directly, filter and sort results, and plot graphs using the 'visualize' tab."
+                },
+                {
                     "cell_name": "available_functions_step",
-                    "title": "5. Add extra functions",
+                    "title": "6. Add extra functions",
                     "description": "If the agent missed something, you can select additional functions to add to the pipeline here.",
                 },
             ]
@@ -545,6 +552,7 @@ def _(
     get_loaded_image,
     get_pipeline_args,
     mo,
+    pd,
     pipeline_widget,
     resize_for_display,
     run_button,
@@ -602,9 +610,13 @@ def _(
                # width=400,
             ),
         ]
+        if _result_data.get('info').get('measurements'):
+            measurements = pd.DataFrame(_result_data['info']['measurements'])
+        else:
+            measurements = None
         if _result_data.get('info'):
             _blocks.append(mo.accordion({"Additional info": mo.ui.table(
-                [{'key': k, 'value': v} for k, v in _result_data['info'].items()],
+                [{'key': k, 'value': v} for k, v in _result_data['info'].items() if not k.startswith('measurements')],
                 selection=None,
             )}))
         _blocks.append(_logs)
@@ -613,7 +625,7 @@ def _(
     history = _history
     print(_result_data['source'].shape, _result_data['current'].shape)
     result_display
-    return (history,)
+    return history, measurements
 
 @app.cell
 def _(WidgetDAG, history, mo):
@@ -643,6 +655,25 @@ def _(WidgetDAG, history, mo):
         if history else mo.md("_Run the pipeline to see the step graph._")
     )
     pipeline_graph
+    return
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
+    ## Measurements
+
+    _If the pipeline contains a measurement step, results will appear below._
+    """)
+    return
+
+
+@app.cell
+def data_explorer(measurements, mo):
+    if measurements is not None:
+        data_explorer = measurements
+    else:
+        data_explorer = mo.md("_No measurements yet_")
+    data_explorer
     return
 
 @app.cell
