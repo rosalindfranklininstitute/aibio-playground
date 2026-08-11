@@ -23,7 +23,7 @@ def check_metadata(module_path, module_metadata):
     return all_params_list
 
 
-def check_function_signature(module_path, module_fn, param_list, param_spec):
+def check_function_signature(module_path, module_fn, param_list, param_specs):
     assert callable(module_fn), f'{module_path}: function is not callable'
     sig = inspect.signature(module_fn)
     params = list(sig.parameters.values())
