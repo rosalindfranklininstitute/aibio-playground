@@ -13,9 +13,37 @@ from liffile import LifFile
 from czitools.metadata_tools.czi_metadata import CziMetadata
 from czitools.utils.misc import md2dataframe
 
-def downsample_for_png(arr: np.ndarray, max_dim: int = 2048) -> np.ndarray:
-    """Downsample a (Y,X,C) uint8 array so neither Y nor X exceeds max_dim."""
+def _stride_for_png(arr: np.ndarray,  max_dim: int = 2048) -> np.ndarray:
+    """
+    Stride a (Y,X,C) array so neither Y nor X exceeds max_dim. 
+    Image data type is preserved and values will not be scaled 
+    or averaged, so that label and mask data can be downsized. 
+    """
+    import numpy as np
+    
+    y, x = arr.shape[:2]
+    if max(y, x) <= max_dim:
+        return arr
+
+    scale = round(max(y, x) / max_dim)
+    new_shape = (max(1, int(y / scale)), max(1, int(x / scale)))
+    print(f'Striding PNG from {(y, x)} to {new_shape} to keep longest side under {max_dim}px')
+
+    stride = arr[::scale,::scale] if arr.ndim == 2 else arr[::scale,::scale,:]
+
+    return stride
+
+def _downsample_for_png(arr: np.ndarray, max_dim: int = 2048) -> np.ndarray:
+    """
+    Downsample a (Y,X,C) array so neither Y nor X exceeds max_dim.
+    Image data type is preserved, but pixel values will be changed during 
+    resizing to ensure smooth outputs. 
+    """
     from skimage.transform import resize
+    from skimage.util import img_as_float, img_as_ubyte, img_as_uint
+    import numpy as np
+
+    type = arr.dtype
 
     y, x = arr.shape[:2]
     if max(y, x) <= max_dim:
@@ -25,9 +53,35 @@ def downsample_for_png(arr: np.ndarray, max_dim: int = 2048) -> np.ndarray:
     new_shape = (max(1, int(y * scale)), max(1, int(x * scale)))
     print(f'Downsampling PNG from {(y, x)} to {new_shape} to keep longest side under {max_dim}px')
 
+    if np.issubdtype(type, np.integer) == True:
+        arr = img_as_float(arr)
+
     out_shape = new_shape if arr.ndim == 2 else (*new_shape, arr.shape[2])
     resized = resize(arr, out_shape, anti_aliasing=True, preserve_range=True)
-    return resized.astype(np.uint8)
+
+    if type == np.uint8:
+        out = img_as_ubyte(resized)
+    elif type == np.uint16:
+        out = img_as_uint(resized)
+    else:
+        out = resized
+
+    return out
+
+def make_thumbnail(arr: np.ndarray, max_dim: int = 2048) -> np.ndarray:
+    """
+    Choose whether to downsample by resizing or striding using 
+    the data type as a proxy for idenfitying labelled images
+    """
+    import numpy as np
+    type = arr.dtype
+
+    if type == np.int32 or type == np.int64:
+        thumb = _stride_for_png(arr, max_dim)
+    else:
+        thumb = _downsample_for_png(arr, max_dim)
+    return thumb
+
 
 def _normalise_to_uint8(arr, global_max=None, global_min=None):
     arr = arr.astype(np.float32)

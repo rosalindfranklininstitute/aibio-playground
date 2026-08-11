@@ -13,7 +13,7 @@ def _():
     from agent.catalogue_loader import load_catalogue
     from agent.pipeline_builder import step, ConversationState, get_client, run_pipeline, generate_step_id, step_id_to_name
     from agent.image_tools import encode_png, resize_for_display
-    from agent.image_loader import inspect_image, load_image, SUPPORTED_EXT, downsample_for_png
+    from agent.image_loader import inspect_image, load_image, SUPPORTED_EXT, make_thumbnail
 
     return (
         mo,
@@ -37,7 +37,7 @@ def _():
         inspect_image,
         load_image,
         SUPPORTED_EXT,
-        downsample_for_png,
+        make_thumbnail,
     )
 
 
@@ -548,7 +548,7 @@ def _(
     base64,
     catalogue,
     encode_png,
-    downsample_for_png,
+    make_thumbnail,
     get_loaded_image,
     get_pipeline_args,
     mo,
@@ -585,7 +585,7 @@ def _(
     _history = []
 
     def _record(name, data):
-        _thumb = downsample_for_png(data['current'], max_dim=250)
+        _thumb = make_thumbnail(data['current'], max_dim=250)
         _history.append((name, encode_png(_thumb)))
 
     with mo.capture_stdout() as _stdout_buf, mo.capture_stderr() as _stderr_buf:
@@ -658,7 +658,7 @@ def _(WidgetDAG, history, mo):
     return
 
 @app.cell(hide_code=True)
-def _(mo):
+def data_explorer(mo):
     mo.md("""
     ## Measurements
 
@@ -668,7 +668,7 @@ def _(mo):
 
 
 @app.cell
-def data_explorer(measurements, mo):
+def _(measurements, mo):
     if measurements is not None:
         data_explorer = measurements
     else:

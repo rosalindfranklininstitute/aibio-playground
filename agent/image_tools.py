@@ -59,6 +59,10 @@ def resize_for_display(arr: np.ndarray, min_dim: int = 400, max_dim: int = 1000)
     [min_dim, max_dim], scaling up if smaller than min_dim, down if larger
     than max_dim, and leaving it untouched if already within range."""
     from skimage.transform import resize
+    from skimage.util import img_as_float, img_as_ubyte, img_as_uint
+
+    type = arr.dtype
+
     y, x = arr.shape[:2]
     longest = max(y, x)
     if min_dim <= longest <= max_dim:
@@ -67,5 +71,16 @@ def resize_for_display(arr: np.ndarray, min_dim: int = 400, max_dim: int = 1000)
     scale = target / longest
     new_shape = (max(1, int(y * scale)), max(1, int(x * scale)))
     out_shape = new_shape if arr.ndim == 2 else (*new_shape, arr.shape[2])
+
+    if np.issubdtype(type, np.integer) == True:
+        arr = img_as_float(arr)
+        
     resized = resize(arr, out_shape, anti_aliasing=True, preserve_range=True)
-    return resized.astype(np.uint8)
+
+    if type == np.uint8:
+        out = img_as_ubyte(resized)
+    elif type == np.uint16:
+        out = img_as_uint(resized)
+    else:
+        out = resized
+    return out
