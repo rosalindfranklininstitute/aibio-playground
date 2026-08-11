@@ -379,12 +379,10 @@ def pipeline_sortablelist(SortableList, get_pipeline, mo):
 @app.cell
 def _(get_pipeline, pipeline_widget, set_pipeline):
     # Detect removals (not reorders) in the SortableList and mirror
-    # them into get_pipeline, so args_form correctly drops removed
-    # steps. Pure reordering (same set of ids) never calls
-    # set_pipeline here, so args_form's widgets stay undisturbed.
+    # them into get_pipeline, so args_form correctly drops removed steps
     _widget_ids = pipeline_widget.value.get("value", [])
     _tracked_ids = get_pipeline()
-    if set(_widget_ids) < set(_tracked_ids):  # proper subset = something removed
+    if set(_widget_ids) < set(_tracked_ids):  # proper subset -> function removed
         set_pipeline(_widget_ids)
     return
 
@@ -398,10 +396,10 @@ def _(mo):
 @app.cell
 def _(mo):
     def make_widget(param_type, value, label=None):
-        if param_type == "number":
-            return mo.ui.number(value=value, label=label)
-        elif param_type == "boolean":
+        if param_type == "boolean":
             return mo.ui.checkbox(value=bool(value), label=label)
+        elif param_type == "number":
+            return mo.ui.number(value=value, label=label)
         else:
             return mo.ui.text(value=str(value), label=label)
     return (make_widget,)
@@ -411,13 +409,9 @@ def _(mo):
     get_args_seed, set_args_seed = mo.state({})
     return get_args_seed, set_args_seed
 
-
 @app.cell
 def _(catalogue, get_args_seed, get_pipeline, get_pipeline_args, set_args_seed, step_id_to_name):
-    # Reseed only when the SET of step ids changes (add/remove).
-    # Uses get_pipeline (not pipeline_widget) since that's stable
-    # across drag-reordering — SortableList owns order, this only
-    # needs to know which steps exist.
+    # Reseed only when the SET of step ids changes (add to or remove from pipeline).
     _step_ids = get_pipeline()
     _current_seed = get_args_seed()
     _current_args = get_pipeline_args()
@@ -431,10 +425,9 @@ def _(catalogue, get_args_seed, get_pipeline, get_pipeline_args, set_args_seed, 
     return
 
 @app.cell
-def _(catalogue, get_args_seed, get_pipeline, make_widget, mo, step_id_to_name):
+def _(catalogue, get_args_seed, get_pipeline, mo, step_id_to_name):
     _step_ids = get_pipeline()
     _seed = get_args_seed()
-
     _forms = {}
     for _step_id in _step_ids:
         _name = step_id_to_name(_step_id)
@@ -447,30 +440,86 @@ def _(catalogue, get_args_seed, get_pipeline, make_widget, mo, step_id_to_name):
         _defaults = catalogue[_name]['defaults']
         _existing = _seed.get(_step_id, {})
         _forms[_step_id] = mo.ui.dictionary({
-            param_name: make_widget(
-                param_spec.get('type', 'string'),
-                _existing.get(param_name, _defaults.get(param_name)),
-                label=param_name,
+            _param_name: mo.ui.checkbox(
+                value=_existing.get(_param_name, _defaults.get(_param_name)) is not None,
+                label='Provide value',
             )
-            for param_name, param_spec in _params.items()
+            for _param_name in _params
         })
-
-    args_form = mo.ui.dictionary(_forms) if _forms else None
-    return (args_form,)
+    enabled_form = mo.ui.dictionary(_forms) if _forms else None
+    return (enabled_form,)
 
 @app.cell
-def _(args_form, catalogue, html, mo, step_id_to_name):
-    if args_form is None:
+def _(catalogue, get_args_seed, get_pipeline, make_widget, step_id_to_name):
+    def _zero_value(param_type):
+        return {"number": 0, "boolean": False}.get(param_type, "")
+
+    _step_ids = get_pipeline()
+    _seed = get_args_seed()
+    _forms = {}
+    for _step_id in _step_ids:
+        _name = step_id_to_name(_step_id)
+        if _name not in catalogue:
+            continue
+        _params = {
+            k: v for k, v in catalogue[_name]['metadata']['parameters'].items()
+            if k != 'image_data'
+        }
+        _defaults = catalogue[_name]['defaults']
+        _existing = _seed.get(_step_id, {})
+        _widgets = {}
+        for _param_name, _param_spec in _params.items():
+            _default_val = _existing.get(_param_name, _defaults.get(_param_name))
+            _ptype = _param_spec.get('type', 'string')
+            _widgets[_param_name] = make_widget(
+                _ptype,
+                _default_val if _default_val is not None else _zero_value(_ptype),
+                label=_param_name,
+            )
+        _forms[_step_id] = mo.ui.dictionary(_widgets)
+    value_form = mo.ui.dictionary(_forms) if _forms else None
+    return (value_form,)
+
+@app.cell
+def _(catalogue, get_args_seed, get_pipeline, mo, step_id_to_name):
+    _step_ids = get_pipeline()
+    _seed = get_args_seed()
+    _forms = {}
+    for _step_id in _step_ids:
+        _name = step_id_to_name(_step_id)
+        if _name not in catalogue:
+            continue
+        _params = {
+            k: v for k, v in catalogue[_name]['metadata']['parameters'].items()
+            if k != 'image_data'
+        }
+        _defaults = catalogue[_name]['defaults']
+        _existing = _seed.get(_step_id, {})
+        _forms[_step_id] = mo.ui.dictionary({
+            _param_name: mo.ui.checkbox(
+                value=_existing.get(_param_name, _defaults.get(_param_name)) is None,
+                label='None',
+            )
+            for _param_name in _params
+        })
+    none_form = mo.ui.dictionary(_forms) if _forms else None
+    return (none_form,)
+
+@app.cell
+def _(catalogue, html, mo, none_form, step_id_to_name, value_form):
+    if none_form is None or value_form is None:
         display = mo.md("_No functions in pipeline yet_")
     else:
         _blocks = []
-        for _step_id, _step_widgets in args_form.items():
+        for _step_id, _step_none_checks in none_form.items():
             _param_specs = catalogue[step_id_to_name(_step_id)]['metadata']['parameters']
             _rows = []
-            for param_name, widget in _step_widgets.items():
-                desc = html.escape(_param_specs.get(param_name, {}).get('description', ''))
+            for _param_name, none_checkbox in _step_none_checks.items():
+                widget = value_form[_step_id][_param_name]
+                _desc = html.escape(_param_specs.get(_param_name, {}).get('description', ''))
+                _dimmed = mo.Html(f'<div style="opacity:{0.4 if none_checkbox.value else 1};">{widget}</div>')
                 _rows.append(mo.hstack(
-                    [widget, mo.md(f'<span title="{desc}" style="font-size:1.3em;">ⓘ</span>')],
+                    [_dimmed, none_checkbox, mo.md(f'<span title="{_desc}" style="font-size:1.3em;">ⓘ</span>')],
                     justify='start', gap=1,
                 ))
             if not _rows:
@@ -481,16 +530,22 @@ def _(args_form, catalogue, html, mo, step_id_to_name):
     return
 
 @app.cell
+def _(apply_args_button, none_form, value_form, set_pipeline_args):
+    if apply_args_button.value and none_form is not None and value_form is not None:
+        _flat = {
+            step_id: {
+                _param_name: (None if is_none else value_form.value[step_id][_param_name])
+                for _param_name, is_none in step_none_checks.items()
+            }
+            for step_id, step_none_checks in none_form.value.items()
+        }
+        set_pipeline_args(_flat)
+    return
+@app.cell
 def _(mo):
     apply_args_button = mo.ui.run_button(label="Apply argument changes")
     apply_args_button
     return (apply_args_button,)
-
-@app.cell
-def _(apply_args_button, args_form, set_pipeline_args):
-    if apply_args_button.value and args_form is not None:
-        set_pipeline_args(args_form.value)
-    return
 
 @app.cell
 def _(catalogue, get_pipeline_args, inspect, mo, pipeline_widget, step_id_to_name):
@@ -623,7 +678,6 @@ def _(
         #result_display = mo.vstack(_blocks, align="center")
         result_display = mo.vstack(_blocks)
     history = _history
-    print(_result_data['source'].shape, _result_data['current'].shape)
     result_display
     return history, measurements
 
