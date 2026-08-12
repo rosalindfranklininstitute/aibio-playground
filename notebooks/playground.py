@@ -547,14 +547,12 @@ def run_pipeline_step(run_button):
 def _(
     base64,
     catalogue,
-    encode_png,
     make_thumbnail,
     get_loaded_image,
     get_pipeline_args,
     mo,
     pd,
     pipeline_widget,
-    resize_for_display,
     run_button,
     run_pipeline,
     step_id_to_name,
@@ -586,7 +584,7 @@ def _(
 
     def _record(name, data):
         _thumb = make_thumbnail(data['current'], max_dim=250)
-        _history.append((name, encode_png(_thumb)))
+        _history.append((name, _thumb))
 
     with mo.capture_stdout() as _stdout_buf, mo.capture_stderr() as _stderr_buf:
         try:
@@ -605,9 +603,9 @@ def _(
     else:
         _blocks = [
             mo.image_compare(
-                encode_png(resize_for_display(_result_data['source'])),
-                encode_png(resize_for_display(_result_data['current'])),
-               # width=400,
+                _result_data['source'],
+                _result_data['current'],
+                width=400,
             ),
         ]
         if _result_data.get('info').get('measurements'):
@@ -670,11 +668,11 @@ def data_explorer(mo):
 @app.cell
 def _(measurements, mo):
     if measurements is not None:
-        data_explorer = measurements
+        data_explorer = mo.ui.table(measurements)
     else:
         data_explorer = mo.md("_No measurements yet_")
     data_explorer
-    return
+    return (data_explorer,)
 
 @app.cell
 def _(mo):
