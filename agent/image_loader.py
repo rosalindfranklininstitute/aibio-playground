@@ -362,7 +362,10 @@ def load_image(
     if channel is not None:
         original_image_data = data[:, :, channel]
     else:
-        original_image_data = data
+        if num_channels == 1:
+            original_image_data = data[:, :, 0]
+        else:
+            original_image_data = data
         # N.B. for RGB images could consider swapping to BGR for cv2 
         # (see encode/decode_png in image_tools.py)
 
@@ -403,7 +406,7 @@ def load_image(
         if alpha is not None:
             norm_data = (norm_data * alpha + 255 * (1 - alpha)).astype(np.uint8)
     #print(norm_data)
-    norm_data = downsample_for_png(norm_data, max_dim=max_png_dim) # limit max resolution (and so roughly max filesize)
+    norm_data = _downsample_for_png(norm_data, max_dim=max_png_dim) # limit max resolution (and so roughly max filesize)
     buf = io.BytesIO()
     #print(f"norm_data dtype: {norm_data.dtype}, min: {norm_data.min()}, max: {norm_data.max()}, shape: {norm_data.shape}")
     iio.imwrite(buf, norm_data, extension='.png')
