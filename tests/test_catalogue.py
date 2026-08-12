@@ -8,6 +8,7 @@ import pytest
 CATALOGUE_DIR = os.path.join(os.path.dirname(__file__), '..', 'catalogue')
 REQUIRED_METADATA_KEYS = ['name', 'description', 'parameters', 'required', 'tags', 'dependencies']
 REQUIRED_PARAMETER_KEYS = ['type', 'description']
+TYPE_NAME_MAP = {bool: 'boolean', int: 'number', float: 'number', str: 'string'}
 
 
 def check_metadata(module_path, module_metadata):
@@ -22,7 +23,7 @@ def check_metadata(module_path, module_metadata):
     return all_params_list
 
 
-def check_function_signature(module_path, module_fn, param_list):
+def check_function_signature(module_path, module_fn, param_list, param_specs):
     assert callable(module_fn), f'{module_path}: function is not callable'
     sig = inspect.signature(module_fn)
     params = list(sig.parameters.values())
@@ -39,6 +40,15 @@ def check_function_signature(module_path, module_fn, param_list):
         assert p.default is not inspect.Parameter.empty, (
             f'{module_path}: parameter "{p.name}" has no default value'
         )
+        if p.default is not None:
+            expected_type = TYPE_NAME_MAP.get(type(p.default))
+            if expected_type is not None:
+                declared_type = param_specs.get(p.name, {}).get('type')
+                assert declared_type == expected_type, (
+                    f'{module_path}: parameter "{p.name}" has default {p.default!r} '
+                    f'(Python type {type(p.default).__name__} -> expected METADATA type '
+                    f'"{expected_type}"), but METADATA declares type "{declared_type}"'
+                )
 
 def check_dependencies(module_path, fn_dependencies):
     for dep in fn_dependencies:
@@ -94,7 +104,7 @@ def test_catalogue_file(fname):
 
     assert hasattr(module, metadata['name']), f'{module_path} has no function "{metadata["name"]}"'
     fn = getattr(module, metadata['name'])
-    check_function_signature(module_path, fn, all_params_list)
+    check_function_signature(module_path, fn, all_params_list, metadata['parameters'])
 
     check_dependencies(module_path, metadata['dependencies'])
 

@@ -15,7 +15,7 @@ METADATA = {
             "processing steps ('info', dict)"
         },
         "background_class": {
-            "type": "bool",
+            "type": "boolean",
             "description": "Whether or not the image for labelling contains a background class. "
             "If True, the lowest value in the current image is considered background, and labelled "
             "with value 0. If False, labelling starts at 1. Defaults to True. "

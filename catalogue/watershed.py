@@ -25,7 +25,7 @@ METADATA = {
             "This has the effect of removing smaller objects from the seed coordinates. "
         },
         "show_boundaries": {
-            "type": "bool",
+            "type": "boolean",
             "description": "Whether to show the watershed lines in the labels. If False, no lines shown. "
             "If True, a one-pixel wide line (with label 0) will separate the identified regions."
         },
