@@ -660,7 +660,6 @@ def _(
             mo.image_compare(
                 _result_data['source'],
                 _result_data['current'],
-                width=400,
             ),
         ]
         if _result_data.get('info').get('measurements'):
