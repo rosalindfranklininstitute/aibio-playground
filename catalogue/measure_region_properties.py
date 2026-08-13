@@ -17,7 +17,7 @@ METADATA = {
             "processing steps ('info', dict)"
         },
         "extra_properties": {
-            "type": "list",
+            "type": "array",
             "description": "List of any additional properties to include. "
             "Must be a property from skimage.measure.regionprops"
         },
