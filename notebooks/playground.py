@@ -375,7 +375,6 @@ def pipeline_sortablelist(SortableList, get_pipeline, mo):
     pipeline_widget
     return (pipeline_widget,)
 
-
 @app.cell
 def _(get_pipeline, pipeline_widget, set_pipeline):
     # Detect removals (not reorders) in the SortableList and mirror
@@ -386,20 +385,22 @@ def _(get_pipeline, pipeline_widget, set_pipeline):
         set_pipeline(_widget_ids)
     return
 
-
 @app.cell
 def _(mo):
     mo.md("### Edit Arguments")
     return
 
-
 @app.cell
 def _(mo):
-    def make_widget(param_type, value, label=None):
+    def make_widget(param_type, value, label=None, options=None):
         if param_type == "boolean":
             return mo.ui.checkbox(value=bool(value), label=label)
         elif param_type == "number":
             return mo.ui.number(value=value, label=label)
+        elif param_type == "array":
+            if options:
+                return mo.ui.multiselect(options=options, value=value or [], label=label)
+            return mo.ui.text(value=', '.join(str(v) for v in (value or [])), label=label)
         else:
             return mo.ui.text(value=str(value), label=label)
     return (make_widget,)
@@ -475,6 +476,7 @@ def _(catalogue, get_args_seed, get_pipeline, make_widget, step_id_to_name):
                 _ptype,
                 _default_val if _default_val is not None else _zero_value(_ptype),
                 label=_param_name,
+                options=_param_spec.get('options')
             )
         _forms[_step_id] = mo.ui.dictionary(_widgets)
     value_form = mo.ui.dictionary(_forms) if _forms else None
@@ -530,17 +532,30 @@ def _(catalogue, html, mo, none_form, step_id_to_name, value_form):
     return
 
 @app.cell
-def _(apply_args_button, none_form, value_form, set_pipeline_args):
+def _(apply_args_button, catalogue, none_form, step_id_to_name, value_form, set_pipeline_args):
+    def _array_text_to_list(step_id, param_name, raw_value):
+        """if param_name is an 'array' type and widget gave raw_value as acomma-separated string 
+        (text-box fallback for METADATA without 'options'), split it into a list. Otherwise no action needed."""
+        _name = step_id_to_name(step_id)
+        _ptype = catalogue[_name]['metadata']['parameters'].get(param_name, {}).get('type')
+        if _ptype == 'array' and isinstance(raw_value, str):
+            return [v.strip() for v in raw_value.split(',') if v.strip()]
+        return raw_value
+
     if apply_args_button.value and none_form is not None and value_form is not None:
         _flat = {
             step_id: {
-                _param_name: (None if is_none else value_form.value[step_id][_param_name])
-                for _param_name, is_none in step_none_checks.items()
+                _param_name: (
+                    None if _is_none
+                    else _array_text_to_list(step_id, _param_name, value_form.value[step_id][_param_name])
+                )
+                for _param_name, _is_none in step_none_checks.items()
             }
             for step_id, step_none_checks in none_form.value.items()
         }
         set_pipeline_args(_flat)
     return
+
 @app.cell
 def _(mo):
     apply_args_button = mo.ui.run_button(label="Apply argument changes")
