@@ -133,7 +133,6 @@ def upload_image_step(upload):
     upload
     return
 
-
 @app.cell
 def _(inspect_image, mo, upload):
     mo.stop(not upload.value, None)
@@ -141,7 +140,6 @@ def _(inspect_image, mo, upload):
     fname = upload.value[0].name
     info = inspect_image(file_bytes, fname)
     return fname, file_bytes, info
-
 
 @app.cell
 def _(fname, info, mo):
@@ -201,12 +199,6 @@ def _(channel_input, channel_none, dims_input, mo, t_input, z_input):
     return
 
 @app.cell
-def _(mo, upload):
-    reload_button = mo.ui.run_button(label="Reload image", disabled=not upload.value)
-    reload_button
-    return (reload_button,)
-
-@app.cell
 def _(mo):
     get_loaded_image, set_loaded_image = mo.state(None)
     return get_loaded_image, set_loaded_image
@@ -227,24 +219,26 @@ def _(
     file_bytes,
     info,
     load_image,
-    reload_button,
     set_loaded_image,
     t_enabled,
     t_input,
     z_enabled,
     z_input,
 ):
-    if reload_button.value:
-        _dims_override = dims_input.value if dims_input.value != info["dims"] else None
-        _png, _array = load_image(
-            file_bytes,
-            fname=fname,
-            dims_override=_dims_override,
-            t=int(t_input.value) if t_enabled else 0,
-            z=int(z_input.value) if z_enabled else None,
-            channel=int(channel_input.value) if (channel_enabled and not channel_none.value) else None,
-        )
-        set_loaded_image({'png': _png, 'array': _array})
+    _dims_override = (
+        dims_input.value
+        if set(dims_input.value) == set(info["dims"]) and dims_input.value != info["dims"]
+        else None
+    )
+    _png, _array = load_image(
+        file_bytes,
+        fname=fname,
+        dims_override=_dims_override,
+        t=int(t_input.value) if t_enabled else 0,
+        z=int(z_input.value) if z_enabled else None,
+        channel=int(channel_input.value) if (channel_enabled and not channel_none.value) else None,
+    )
+    set_loaded_image({'png': _png, 'array': _array})
     return
 
 @app.cell
@@ -532,7 +526,7 @@ def _(catalogue, html, mo, none_form, step_id_to_name, value_form):
     return
 
 @app.cell
-def _(apply_args_button, catalogue, none_form, step_id_to_name, value_form, set_pipeline_args):
+def _(catalogue, none_form, step_id_to_name, value_form, set_pipeline_args):
     def _array_text_to_list(step_id, param_name, raw_value):
         """if param_name is an 'array' type and widget gave raw_value as acomma-separated string 
         (text-box fallback for METADATA without 'options'), split it into a list. Otherwise no action needed."""
@@ -542,25 +536,16 @@ def _(apply_args_button, catalogue, none_form, step_id_to_name, value_form, set_
             return [v.strip() for v in raw_value.split(',') if v.strip()]
         return raw_value
 
-    if apply_args_button.value and none_form is not None and value_form is not None:
+    if none_form is not None and value_form is not None:
         _flat = {
             step_id: {
-                _param_name: (
-                    None if _is_none
-                    else _array_text_to_list(step_id, _param_name, value_form.value[step_id][_param_name])
-                )
+                _param_name: (None if _is_none else _array_text_to_list(step_id, _param_name, value_form.value[step_id][_param_name]))
                 for _param_name, _is_none in step_none_checks.items()
             }
             for step_id, step_none_checks in none_form.value.items()
-        }
+        }   
         set_pipeline_args(_flat)
     return
-
-@app.cell
-def _(mo):
-    apply_args_button = mo.ui.run_button(label="Apply argument changes")
-    apply_args_button
-    return (apply_args_button,)
 
 @app.cell
 def _(catalogue, get_pipeline_args, inspect, mo, pipeline_widget, step_id_to_name):
