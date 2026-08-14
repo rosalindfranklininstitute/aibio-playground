@@ -5,8 +5,9 @@ METADATA = {
         "bounding box, centroid coordinate and solidity. Use this when a user wants to "
         "quantify their analysis at the end of the pipeline. Standard properties are returned, "
         "but additional properties can be requested by listing them in the 'extra_properties' "
-        "argument. Intensity-based properties of the unprocessed image can be measured using "
-        "the labelled image as a mask. Default properties are: "
+        "argument. If class-based labels are supplied (such as with label_classes), the returned "
+        "properties will be at the class level. Intensity-based properties of the unprocessed "
+        "image can be measured using the labelled image as a mask. Default properties are: "
         "['label','perimeter','area','centroid','num_pixels']"
     ),
     "parameters": {

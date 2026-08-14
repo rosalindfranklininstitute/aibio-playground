@@ -76,6 +76,12 @@ def get_hexvals(image_data: dict):
 
 
 def build_image_histogram(arr: np.ndarray):
+    """
+    Takes 2D single or multichannel image array and plots histograms of the pixel values.
+    If multiple channels are provided, the average of all channels, and each individual 
+    channel will be plotted. If 3 channels, image is presumed RGB and single channel
+    histograms are plotted with R/G/B lines.
+    """
     # If only 2D array, histogram is greyscale/single channel 
     plt.rcParams.update({'font.size':5}) # This means the fig size and font are well matched
     if arr.ndim == 2:

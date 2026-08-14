@@ -1,11 +1,12 @@
 METADATA = {
     "name": "label_classes",
     "description": (
-        "Computes the labels for a binary or multi-class image at the class level. "
-        "Use this when a user wants to uniquely label classes for measurement without generating "
-        "instances based on connected regions. Returns a labelled segmentation mask. Also allows "
-        "measurement of regions where no class is considered background. Input image should already "
-        "be converted to classes by segmentation methods such as thresholding."
+        "Computes the labels for a binary or multi-class image at the class level. Use this "
+        "when a user wants to uniquely label classes for measurement of class-level metrics, "
+        "without separating classes into instances based on connected regions. Returns a labelled "
+        "segmentation mask. Setting background_class to False allows downstream measurement of "
+        "images where no class is considered background. Input image should already be converted "
+        "to classes by segmentation methods such as thresholding."
     ),
     "parameters": {
         "image_data": {
