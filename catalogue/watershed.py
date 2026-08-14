@@ -67,5 +67,10 @@ def watershed(image_data, footprint = None, threshold = None, show_boundaries = 
 
     # because watershed considers valleys (not peaks) we need to invert the distance matrix
     labels = ski.segmentation.watershed(image = -distance, markers = seeds, mask = image, watershed_line = show_boundaries)
+
+    lmin = np.min(labels)
+    lmax = np.max(labels)
+    total = lmax - lmin + 1
+    image_data['info']['labels'] = {"label_min": lmin, "label_max": lmax, "num_labels": total, "label_method": "watershed"}
     image_data['current'] = labels
     return image_data 

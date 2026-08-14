@@ -47,6 +47,10 @@ def label_classes(image_data, background_class = True):
     elif background_class == False:
         pass
 
+    lmin = np.min(labels)
+    lmax = np.max(labels)
+    total = lmax - lmin + 1
+    image_data['info']['labels'] = {"label_min": lmin, "label_max": lmax, "num_labels": total, "label_method": "label_classes"}
     # todo: np.digitize returns int64
     image_data['current'] = labels
     return image_data 

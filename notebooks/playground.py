@@ -14,6 +14,7 @@ def _():
     from agent.pipeline_builder import step, ConversationState, get_client, run_pipeline, generate_step_id, step_id_to_name
     from agent.image_tools import encode_png, resize_for_display
     from agent.image_loader import inspect_image, load_image, SUPPORTED_EXT, make_thumbnail
+    from agent.visualisation_tools import get_hexvals, color_cell, color_labels, build_image_histogram
 
     return (
         mo,
@@ -38,6 +39,10 @@ def _():
         load_image,
         SUPPORTED_EXT,
         make_thumbnail,
+        get_hexvals,
+        color_labels,
+        color_cell,
+        build_image_histogram,
     )
 
 
@@ -248,10 +253,19 @@ def _(
     return
 
 @app.cell
-def _(get_loaded_image, mo):
+def _(get_loaded_image, build_image_histogram, mo):
     _loaded = get_loaded_image()
     (
-        mo.vstack([mo.md("### Image to be processed"), mo.image(_loaded['png'], width=400)])
+        mo.hstack([
+            mo.vstack([
+                mo.md("### Image to be processed"), 
+                mo.image(_loaded['png'],width=400)
+                ]),
+            mo.vstack([
+                mo.md("### Image histogram"), 
+                mo.mpl.interactive(build_image_histogram(_loaded['array']))
+                ])
+        ], widths="equal")
         if _loaded else mo.md("_Upload an image first_")
     )
     return
@@ -613,6 +627,8 @@ def _(
     step_id_to_name,
     traceback,
     upload,
+    get_hexvals,
+    color_labels,
 ):
     mo.stop(not run_button.value, mo.md(""))
     mo.stop(not upload.value, mo.md("Load an image first."))
@@ -656,13 +672,21 @@ def _(
             _logs,
         ])
     else:
-        _blocks = [
-            mo.image_compare(
-                _result_data['source'],
-                _result_data['current'],
-                width=400,
-            ),
-        ]
+        if _result_data.get('info').get('labels'):
+            _result_data = get_hexvals(_result_data)
+            _blocks = [
+                    mo.image_compare(
+                        _result_data['source'],
+                        color_labels(_result_data['current']),
+                    ),
+                ]
+        else:
+            _blocks = [
+                    mo.image_compare(
+                        _result_data['source'],
+                        _result_data['current'],
+                    ),
+                ]
         if _result_data.get('info').get('measurements'):
             measurements = pd.DataFrame(_result_data['info']['measurements'])
         else:
@@ -720,9 +744,21 @@ def data_explorer(mo):
 
 
 @app.cell
-def _(measurements, mo):
+def _(measurements, color_cell, mo):
     if measurements is not None:
-        data_explorer = mo.ui.table(measurements)
+        _float_cols = measurements.select_dtypes(include=["float"]).columns
+        _float_format_mapping = {col: "{:.2f}".format for col in _float_cols}
+
+        data_explorer = mo.ui.table(
+            data=measurements,
+            style_cell=color_cell, 
+            freeze_columns_left=["color","label"], 
+            column_widths = {"color":60,"label":50},
+            show_column_summaries = False,
+            page_size = 25,
+            format_mapping = _float_format_mapping
+        )
+
     else:
         data_explorer = mo.md("_No measurements yet_")
     data_explorer
