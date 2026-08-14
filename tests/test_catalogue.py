@@ -8,7 +8,7 @@ import pytest
 CATALOGUE_DIR = os.path.join(os.path.dirname(__file__), '..', 'catalogue')
 REQUIRED_METADATA_KEYS = ['name', 'description', 'parameters', 'required', 'tags', 'dependencies']
 REQUIRED_PARAMETER_KEYS = ['type', 'description']
-TYPE_NAME_MAP = {bool: 'boolean', int: 'number', float: 'number', str: 'string'}
+TYPE_NAME_MAP = {bool: 'boolean', int: 'number', float: 'number', str: 'string', list: 'array'}
 
 
 def check_metadata(module_path, module_metadata):
