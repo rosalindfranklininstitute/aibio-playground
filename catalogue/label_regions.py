@@ -52,6 +52,10 @@ def label_regions(image_data, connectivity = 2, background_value = None):
     else:
         labels = ski.measure.label(image, connectivity = connectivity)
 
+    lmin = np.min(labels)
+    lmax = np.max(labels)
+    total = lmax - lmin + 1
+    image_data['info']['labels'] = {"label_min": lmin, "label_max": lmax, "num_labels": total, "label_method": "label_regions"}
     # todo: ski.measure.label returns int64
     image_data['current'] = labels
     return image_data 
