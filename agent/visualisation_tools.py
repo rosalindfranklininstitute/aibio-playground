@@ -52,8 +52,7 @@ def get_hexvals(image_data: dict):
         if image_data.get('info').get('measurements'):
             labels = image_data['info']['measurements']['label']
             colors = np.array([rgb2hex(cmap(item)) for item in labels])
-
-        image_data['info']['measurements']['color'] = colors
+            image_data['info']['measurements']['color'] = colors
         return image_data
 
     # But if there isn't label metadata, we can guess from measurement data.
