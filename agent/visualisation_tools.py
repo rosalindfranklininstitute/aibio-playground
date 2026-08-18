@@ -56,15 +56,20 @@ def get_hexvals(image_data: dict):
         image_data['info']['measurements']['color'] = colors
         return image_data
 
-    # But if there isn't label metadata, we can guess from measurement data
+    # But if there isn't label metadata, we can guess from measurement data.
+    # Note if there isn't label metadata, the output wont be colored, so we 
+    # have to colorcode by grayscale instead. Technically this stretches the
+    # cmap so that maxval = white even if maxval isn't e.g. 255 for a uint8
+    # image, but this is unlikely to be an issue because thresholding rarely
+    # returns a low contrast result.
     else:
         if image_data.get('info').get('measurements'):
                 n = image_data['info']['measurements']['label'][-1]
                 m = image_data['info']['measurements']['label'][0]
                 if m == 0:
-                    cmap = plt.get_cmap('prism',n+1)
+                    cmap = plt.get_cmap('binary_r',n+1)
                 else:
-                    cmap = plt.get_cmap('prism',n)
+                    cmap = plt.get_cmap('binary_r',n)
                 labels = image_data['info']['measurements']['label']
                 colors = np.array([rgb2hex(cmap(item)) for item in labels])
                 image_data['info']['measurements']['color'] = colors

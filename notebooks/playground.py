@@ -688,7 +688,11 @@ def _(
                     ),
                 ]
         if _result_data.get('info').get('measurements'):
-            measurements = pd.DataFrame(_result_data['info']['measurements'])
+            if _result_data.get('info').get('labels'):
+                measurements = pd.DataFrame(_result_data['info']['measurements'])
+            else:
+                _result_data = get_hexvals(_result_data)
+                measurements = pd.DataFrame(_result_data['info']['measurements'])
         else:
             measurements = None
         if _result_data.get('info'):
