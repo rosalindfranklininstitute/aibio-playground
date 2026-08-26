@@ -1,0 +1,30 @@
+site_name: Bioimage Analysis Playground
+repo_url: https://github.com/rosalindfranklininstitute/aibio-playground
+site_url: https://rosalindfranklininstitute.github.io/aibio-playground/
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - header.autohide
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - attr_list
+  - md_in_html
+  - pymdownx.blocks.html
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - footnotes
+
+plugins:
+  - social
+  - marimo
+
+copyright: The Rosalind Franklin Institute © CC BY-SA 4.0
