@@ -9,6 +9,7 @@ theme:
     - header.autohide
 
 markdown_extensions:
+  - meta
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
