@@ -1,4 +1,7 @@
 # Bioimage Analysis Playground
+
+Documentation: [rosalindfranklininstitute.github.io/aibio-playground](https://rosalindfranklininstitute.github.io/aibio-playground/)
+
 <p align="center">
   <img src="/assets/project5.jpg" width=450 />
 </p>
