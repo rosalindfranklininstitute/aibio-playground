@@ -1,3 +1,10 @@
+---
+title: BAP: Getting Started
+description: Getting started with the Bioimage Analysis Playground
+---
+
+Note should set page metadata to display in social cards: [pub-meta](https://mkdocs-publisher.github.io/setup/general/pub-meta/#introduction)
+
 # Getting started page
 This is a tutorial...
 
