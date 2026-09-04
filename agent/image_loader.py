@@ -103,7 +103,7 @@ def _build_readers():
         'czi': {'reader': bioio_czi_reader, 'ext': ['.czi']},
         'lif': {'reader': bioio_lif_reader, 'ext': ['.lif']},
         'nd2': {'reader': bioio_nd2_reader, 'ext': ['.nd2']},
-        'ome_tiff': {'reader': bioio_ome_tiff_reader, 'ext': ['.ome.tif', '.ome.tiff']},
+        'ome_tiff': {'reader': bioio_ome_tiff_reader, 'ext': ['.ome.tif', '.ome.tiff']}, # Note must be checked BEFORE .tif
         'tifffile': {'reader': bioio_tifffile_reader, 'ext': ['.tif', '.tiff']},
     }
 
