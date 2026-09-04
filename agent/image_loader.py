@@ -91,16 +91,23 @@ def _normalise_to_uint8(arr, global_max=None, global_min=None):
         return np.zeros_like(arr, dtype=np.uint8) # uniform (black)
     return ((arr - min_arr) / (max_arr - min_arr) * 255.0).astype(np.uint8)
 
-READERS = {
+def _build_readers():
+    from bioio_tifffile import Reader as bioio_tifffile_reader
+    from bioio_ome_tiff import Reader as bioio_ome_tiff_reader
+    from bioio_czi import Reader as bioio_czi_reader
+    from bioio_imageio import Reader as bioio_imageio_reader
+    from bioio_lif import Reader as bioio_lif_reader
+    from bioio_nd2 import Reader as bioio_nd2_reader
+    return {
         'imageio': {'reader': bioio_imageio_reader, 'ext': ['.png', '.jpg', '.jpeg', '.webp', '.gif']},
         'czi': {'reader': bioio_czi_reader, 'ext': ['.czi']},
-        'lif':  {'reader': bioio_lif_reader, 'ext': ['.lif']},
-        'nd2':  {'reader': bioio_nd2_reader, 'ext': ['.nd2']},
-        'ome_tiff':  {'reader': bioio_ome_tiff_reader, 'ext': ['.ome.tif', '.ome.tiff']}, # Note must be checked BEFORE tiff
-        'tifffile':  {'reader': bioio_tifffile_reader, 'ext': ['.tif', '.tiff']},
-}
+        'lif': {'reader': bioio_lif_reader, 'ext': ['.lif']},
+        'nd2': {'reader': bioio_nd2_reader, 'ext': ['.nd2']},
+        'ome_tiff': {'reader': bioio_ome_tiff_reader, 'ext': ['.ome.tif', '.ome.tiff']}, # Note must be checked BEFORE .tif
+        'tifffile': {'reader': bioio_tifffile_reader, 'ext': ['.tif', '.tiff']},
+    }
 
-SUPPORTED_EXT = [ext for reader in READERS for ext in READERS[reader]['ext']]
+SUPPORTED_EXT = [ext for reader in _build_readers().values() for ext in reader['ext']]
 
 def _resolve_path(path_or_bytes: str | bytes, filename: str | None = None):
     """Return (path, is_temporary) for an existing file path or 
@@ -119,10 +126,11 @@ def bioio_loader(path_or_bytes: str | bytes, filename: str | None = None):
     return _bioio_loader(path, filename)
 
 def _bioio_loader(path: str, original_name: str | None = None):
+    readers = _build_readers()
     freader = None
     reader_name = None
     fname = original_name if original_name is not None else os.path.basename(path)
-    for _reader_name, _reader_val in READERS.items():
+    for _reader_name, _reader_val in readers.items():
         if any(path.endswith(ext) for ext in _reader_val['ext']):
             reader_name = _reader_name
             freader = _reader_val['reader']
