@@ -12,6 +12,7 @@ def _():
     sys.path.insert(0, '/app')
     from agent.catalogue_loader import load_catalogue
     from agent.pipeline_builder import step, ConversationState, get_client, run_pipeline, generate_step_id, step_id_to_name
+    from agent.pipeline_exporter import build_pipeline_script
     from agent.image_tools import encode_png, resize_for_display
     from agent.image_loader import inspect_image, load_image, SUPPORTED_EXT, make_thumbnail
     from agent.visualisation_tools import get_hexvals, color_cell, color_labels, build_image_histogram
@@ -69,7 +70,7 @@ def _(CellTour, mo):
                 {
                     "cell_name": "run_pipeline_step",
                     "title": "4. Run the pipeline",
-                    "description": "Press run to apply the pipeline to your image data. The result appears in a box below."
+                    "description": "Press run to apply the pipeline to your image data. The result appears in a box below. You will also have the option to export the pipeline as a standalone Python script."
                 },
                 {
                     "cell_name": "data_explorer",
@@ -583,7 +584,7 @@ def _(catalogue, get_pipeline_args, inspect, mo, pipeline_widget, step_id_to_nam
             if step_id_to_name(step_id) in catalogue
         })
     else:
-        source_accordion = mo.md("_No functions in pipeline yet._")
+        source_accordion = mo.md("")
     source_accordion
     return
 
@@ -610,6 +611,54 @@ def _(mo):
 @app.cell
 def run_pipeline_step(run_button):
     run_button
+    return
+
+@app.cell
+def export_pipeline_step(
+    catalogue,
+    channel_enabled,
+    channel_input,
+    channel_none,
+    dims_input,
+    fname,
+    build_pipeline_script,
+    get_pipeline,
+    get_pipeline_args,
+    info,
+    mo,
+    step_id_to_name,
+    t_enabled,
+    t_input,
+    z_enabled,
+    z_input,
+):
+    _step_ids = get_pipeline()
+    _args_map = get_pipeline_args()
+    _pipeline = [
+        {
+            "name": step_id_to_name(sid),
+            "args": _args_map.get(sid, catalogue[step_id_to_name(sid)]['defaults']),
+        }
+        for sid in _step_ids
+        if step_id_to_name(sid) in catalogue
+    ]
+    if _pipeline:
+        _dims_override = (
+            dims_input.value
+            if set(dims_input.value) == set(info["dims"]) and dims_input.value != info["dims"]
+            else None
+        )
+        _script = build_pipeline_script(
+            _pipeline, catalogue, source_path=fname,
+            dims_override=_dims_override,
+            t=int(t_input.value) if t_enabled else 0,
+            z=int(z_input.value) if z_enabled else None,
+            channel=int(channel_input.value) if (channel_enabled and not channel_none.value) else None,
+        )
+        export_display = mo.download(data=_script.encode('utf-8'), filename='run_pipeline.py', mimetype='text/x-python', label='Export pipeline as script')
+    else:
+        export_display = mo.md("")
+    export_display
     return
 
 @app.cell
@@ -785,6 +834,8 @@ def available_functions_step(catalogue, mo):
         ],
         selection="multi",
         label="Functional Catalogue",
+        show_column_summaries=False,
+        column_widths={'description':920},
     )
     catalogue_table
     return (catalogue_table,)
