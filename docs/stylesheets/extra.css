@@ -1,0 +1,11 @@
+:root > * {
+  --md-primary-fg-color: #FFB612;
+  --md-accent-fg-color: #71D6E0;
+}
+.md-source {
+  background-color: #71D6E0;
+}
+.md-nav__source {
+  background-color: #71D6E0;
+}
+

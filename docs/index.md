@@ -1,4 +1,5 @@
-# Bioimage Analysis Playground: The novice's gateway to quantitative biological image analysis 
+# Introduction
+## Bioimage Analysis Playground: The novice's gateway to quantitative biological image analysis 
 
 This project aims to provide a gateway for newcomers to learn the language of
 bioimage analysis, play with image processing techniques using their own data,
