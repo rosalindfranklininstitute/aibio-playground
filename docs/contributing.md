@@ -51,5 +51,4 @@ for review. In your PR description, please include:
 - A worked example (e.g., sample image, parameters used, and the resulting output) that a
   reviewer can run to verify the function works as intended
 
-This helps reviewers test functionality quickly, since the automated checks only cover
-syntax and form.
+This helps us test functionality, since the automated checks only cover syntax and form.
